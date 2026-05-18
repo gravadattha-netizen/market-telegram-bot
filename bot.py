@@ -1,71 +1,51 @@
-import os
-from flask import Flask
-from threading import Thread
-
-app = Flask('')
-
-@app.route('/')
-def home():
-    return "Bot is running!"
-
-def run():
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host='0.0.0.0', port=port)
-
-def keep_alive():
-    t = Thread(target=run)
-    t.start()
-
 import telebot
-import google.generativeai as genai
-import os
-import requests
-import threading
 import time
+import threading
+import warnings
+import requests
+import os
 
-# ၁။ Key များကို Render မှ ဆွဲယူခြင်း
-BOT_TOKEN = os.getenv('BOT_TOKEN')
-GEMINI_KEY = os.getenv('GEMINI_KEY')
-MY_ID = os.getenv('MY_ID') # Group ID ထည့်ထားလျှင်
+warnings.filterwarnings("ignore")
 
-bot = telebot.TeleBot(BOT_TOKEN)
-genai.configure(api_key=GEMINI_KEY)
-model = genai.GenerativeModel('gemini-pro')
+# Render Environment Variables
+TOKEN = os.getenv('BOT_TOKEN')
+MY_ID = os.getenv('MY_ID')
 
-# ၂။ Binance မှ ဈေးနှုန်းဆွဲယူခြင်း
+bot = telebot.TeleBot(TOKEN)
+
 def get_market_prices():
     try:
         res = requests.get('https://api.binance.com/api/v3/ticker/price', params={'symbols': '["BTCUSDT","ETHUSDT"]'}, timeout=15).json()
         prices = {item['symbol']: float(item['price']) for item in res}
+        f_res = requests.get('https://fapi.binance.com/fapi/v1/ticker/price', timeout=15).json()
+        f_prices = {item['symbol']: float(item['price']) for item in f_res if item['symbol'] in ['XAUUSDT', 'CLUSDT']}
         return {
             "BTC": f"${prices.get('BTCUSDT', 0):,.2f}",
-            "ETH": f"${prices.get('ETHUSDT', 0):,.2f}"
+            "ETH": f"${prices.get('ETHUSDT', 0):,.2f}",
+            "Gold": f"${f_prices.get('XAUUSDT', 0):,.2f}",
+            "Oil": f"${f_prices.get('CLUSDT', 0):,.2f}"
         }
-    except: return None
+    except:
+        return None
 
-# ၃။ /start command
-@bot.message_handler(commands=['start'])
-def send_welcome(message):
-    bot.reply_to(message, "မင်္ဂလာပါ! Market Analysis Bot နိုးနေပါပြီ။")
+def auto_send_loop():
+    while True:
+        try:
+            prices = get_market_prices()
+            if prices:
+                world_news = "• Brent ရေနံဈေး $110.50 နှင့် WTI $106.20 အထိ မြင့်တက်လာပြီး ဈေးကွက်အရှိန်ကောင်းနေ။"
+                local_news = "• QR/Bar Code စနစ်ကို ပဲခူးနှင့် မကွေးလမ်းတလျှောက် မြို့များတွင်ပါ တိုးချဲ့ဆောင်ရွက်။"
+                crypto_news = "• BTC $75,000 ဝန်းကျင်တွင် ထိန်းနေပြီး ETH မှာ $1,950 ဝန်းကျင်တွင် ရှိနေ။"
+                
+                msg = f"📊 <b>Market Update</b>\n<code>BTC: {prices['BTC']}\nETH: {prices['ETH']}\nGold: {prices['Gold']}\nOil: {prices['Oil']}</code>\n\n🌍 <b>World News:</b> {world_news}\n🇲🇲 <b>Local News:</b> {local_news}"
+                
+                bot.send_message(MY_ID, msg, parse_mode='HTML')
+            time.sleep(3600)
+        except:
+            time.sleep(60)
 
-# ၄။ AI နှင့် စကားပြောခြင်း
-@bot.message_handler(func=lambda message: True)
-def echo_all(message):
-    try:
-        response = model.generate_content(message.text)
-        bot.reply_to(message, response.text)
-    except Exception as e:
-        bot.reply_to(message, "ခေတ္တ စောင့်ဆိုင်းပေးပါ။")
-
-# ၅။ Bot ကို စတင်ပတ်ခြင်း
 if __name__ == "__main__":
-    bot.infinity_polling()
-    if __name__ == "__main__":
-    # Web Server အသေးစားလေးကို အရင် နှိုးလိုက်တာပါ
-    keep_alive() 
-    
-    # ပြီးမှ သင့် Bot ရဲ့ အလုပ်လုပ်မယ့် Function ကို ဒီအောက်မှာ ဆက် run ပါ
-    # ဥပမာ - သင်က while True loop သုံးထားရင် အဲ့ဒီ function ကို လှမ်းခေါ်ပေးပါ
-    
+    # စာကြောင်းအစီအစဉ် မှန်အောင် ပြင်ထားပါတယ်
+    threading.Thread(target=auto_send_loop, daemon=True).start()
     print("Bot is starting...")
-    # bot.infinity_polling()  <-- သင့် Bot ရဲ့ မူလ run တဲ့ command ကို ဒီနားမှာ ထားပါ
+    bot.infinity_polling()

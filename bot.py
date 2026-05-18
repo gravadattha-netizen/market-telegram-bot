@@ -1,59 +1,71 @@
-import telebot
-import time
-import threading
-import requests
 import os
+from flask import Flask
+from threading import Thread
+
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Bot is running!"
+
+def run():
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
+
+import telebot
 import google.generativeai as genai
+import os
+import requests
+import threading
+import time
 
 # ၁။ Key များကို Render မှ ဆွဲယူခြင်း
-TOKEN = os.getenv('BOT_TOKEN')
-MY_ID = os.getenv('MY_ID') 
+BOT_TOKEN = os.getenv('BOT_TOKEN')
 GEMINI_KEY = os.getenv('GEMINI_KEY')
+MY_ID = os.getenv('MY_ID') # Group ID ထည့်ထားလျှင်
 
-bot = telebot.TeleBot(TOKEN)
+bot = telebot.TeleBot(BOT_TOKEN)
 genai.configure(api_key=GEMINI_KEY)
 model = genai.GenerativeModel('gemini-pro')
 
-# ၂။ ဈေးနှုန်းဆွဲယူသည့် Function
+# ၂။ Binance မှ ဈေးနှုန်းဆွဲယူခြင်း
 def get_market_prices():
     try:
         res = requests.get('https://api.binance.com/api/v3/ticker/price', params={'symbols': '["BTCUSDT","ETHUSDT"]'}, timeout=15).json()
         prices = {item['symbol']: float(item['price']) for item in res}
-        f_res = requests.get('https://fapi.binance.com/fapi/v1/ticker/price', timeout=15).json()
-        f_prices = {item['symbol']: float(item['price']) for item in f_res if item['symbol'] in ['XAUUSDT', 'CLUSDT']}
         return {
             "BTC": f"${prices.get('BTCUSDT', 0):,.2f}",
-            "ETH": f"${prices.get('ETHUSDT', 0):,.2f}",
-            "Gold": f"${f_prices.get('XAUUSDT', 0):,.2f}",
-            "Oil": f"${f_prices.get('CLUSDT', 0):,.2f}"
+            "ETH": f"${prices.get('ETHUSDT', 0):,.2f}"
         }
     except: return None
 
-# ၃။ ၁ နာရီတစ်ခါ အလိုအလျောက်ပို့ပေးမည့် Loop
-def auto_send_loop():
-    while True:
-        try:
-            prices = get_market_prices()
-            if prices:
-                msg = f"📊 <b>Market Update</b>\n\n<code>BTC: {prices['BTC']}\nETH: {prices['ETH']}\nGold: {prices['Gold']}\nOil: {prices['Oil']}</code>"
-                bot.send_message(MY_ID, msg, parse_mode='HTML')
-            time.sleep(3600) # ၃၆၀၀ စက္ကန့် (၁ နာရီ) ခြားစီပို့မည်
-        except: time.sleep(60)
-
-# ၄။ Commands များ
+# ၃။ /start command
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    bot.reply_to(message, "မင်္ဂလာပါ! Market Bot နိုးနေပါပြီ။ ၁ နာရီတစ်ခါ ဈေးနှုန်းတွေ ပို့ပေးပါမယ်။")
+    bot.reply_to(message, "မင်္ဂလာပါ! Market Analysis Bot နိုးနေပါပြီ။")
 
-# ၅။ AI နဲ့ စကားပြောဖို့ (မလိုရင် ဖြုတ်ထားနိုင်ပါတယ်)
+# ၄။ AI နှင့် စကားပြောခြင်း
 @bot.message_handler(func=lambda message: True)
-def chat_ai(message):
+def echo_all(message):
     try:
         response = model.generate_content(message.text)
         bot.reply_to(message, response.text)
-    except: pass
+    except Exception as e:
+        bot.reply_to(message, "ခေတ္တ စောင့်ဆိုင်းပေးပါ။")
 
-# ၆။ Bot စတင်လည်ပတ်ခြင်း
+# ၅။ Bot ကို စတင်ပတ်ခြင်း
 if __name__ == "__main__":
-    threading.Thread(target=auto_send_loop, daemon=True).start()
     bot.infinity_polling()
+    if __name__ == "__main__":
+    # Web Server အသေးစားလေးကို အရင် နှိုးလိုက်တာပါ
+    keep_alive() 
+    
+    # ပြီးမှ သင့် Bot ရဲ့ အလုပ်လုပ်မယ့် Function ကို ဒီအောက်မှာ ဆက် run ပါ
+    # ဥပမာ - သင်က while True loop သုံးထားရင် အဲ့ဒီ function ကို လှမ်းခေါ်ပေးပါ
+    
+    print("Bot is starting...")
+    # bot.infinity_polling()  <-- သင့် Bot ရဲ့ မူလ run တဲ့ command ကို ဒီနားမှာ ထားပါ

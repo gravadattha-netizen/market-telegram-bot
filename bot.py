@@ -1,50 +1,75 @@
 import telebot
+import os
+import requests
 import time
 import threading
-import warnings
-import requests
-import os
+from flask import Flask
 
-warnings.filterwarnings("ignore")
+# ၁။ Render Live ဖြစ်စေဖို့ Flask ဆောက်ခြင်း
+app = Flask('')
 
-# Render Environment Variables
-TOKEN = os.getenv('BOT_TOKEN')
+@app.route('/')
+def home():
+    return "Bot is alive!"
+
+def run_web():
+    # Render က ပေးတဲ့ PORT (သို့မဟုတ်) 10000 ကို သုံးပါမယ်
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)
+
+# ၂။ Environment Variables ဆွဲယူခြင်း
+BOT_TOKEN = os.getenv('BOT_TOKEN')
 MY_ID = os.getenv('MY_ID')
 
-bot = telebot.TeleBot(TOKEN)
+bot = telebot.TeleBot(BOT_TOKEN)
 
+# ၃။ Binance ကနေ စျေးနှုန်းဆွဲယူတဲ့ Function
 def get_market_prices():
     try:
-        res = requests.get('https://api.binance.com/api/v3/ticker/price', params={'symbols': '["BTCUSDT","ETHUSDT"]'}, timeout=15).json()
+        url = 'https://api.binance.com/api/v3/ticker/price'
+        params = {'symbols': '["BTCUSDT","ETHUSDT"]'}
+        res = requests.get(url, params=params, timeout=10).json()
         prices = {item['symbol']: float(item['price']) for item in res}
-        f_res = requests.get('https://fapi.binance.com/fapi/v1/ticker/price', timeout=15).json()
-        f_prices = {item['symbol']: float(item['price']) for item in f_res if item['symbol'] in ['XAUUSDT', 'CLUSDT']}
         return {
             "BTC": f"${prices.get('BTCUSDT', 0):,.2f}",
-            "ETH": f"${prices.get('ETHUSDT', 0):,.2f}",
-            "Gold": f"${f_prices.get('XAUUSDT', 0):,.2f}",
-            "Oil": f"${f_prices.get('CLUSDT', 0):,.2f}"
+            "ETH": f"${prices.get('ETHUSDT', 0):,.2f}"
         }
-    except:
+    except Exception as e:
+        print(f"Error fetching prices: {e}")
         return None
 
+# ၄။ စျေးနှုန်းကို ၁ နာရီတစ်ခါ ပို့ပေးမည့် Loop
 def auto_send_loop():
     while True:
-        try:
-            prices = get_market_prices()
-            if prices:
-                msg = f"📊 <b>Market Update</b>\n<code>BTC: {prices['BTC']}\nETH: {prices['ETH']}\nGold: {prices['Gold']}\nOil: {prices['Oil']}</code>"
+        prices = get_market_prices()
+        if prices and MY_ID:
+            msg = (f"📊 <b>Market Update</b>\n\n"
+                   f"₿ <b>BTC:</b> {prices['BTC']}\n"
+                   f"Ξ <b>ETH:</b> {prices['ETH']}")
+            try:
                 bot.send_message(MY_ID, msg, parse_mode='HTML')
-            time.sleep(3600) # ၁ နာရီတစ်ခါပို့မယ်
-        except:
-            time.sleep(60)
+            except:
+                pass
+        time.sleep(3600)
+
+@bot.message_handler(commands=['price'])
+def send_price(message):
+    prices = get_market_prices()
+    if prices:
+        msg = f"📊 <b>Current Prices</b>\nBTC: {prices['BTC']}\nETH: {prices['ETH']}"
+        bot.reply_to(message, msg, parse_mode='HTML')
+    else:
+        bot.reply_to(message, "စျေးနှုန်းဆွဲယူရတာ အဆင်မပြေဖြစ်နေပါတယ်။")
 
 @bot.message_handler(commands=['start'])
 def start(message):
-    bot.reply_to(message, "Bot အလုပ်လုပ်နေပါပြီခင်ဗျာ။")
+    bot.reply_to(message, "Bot အလုပ်လုပ်နေပါပြီခင်ဗျာ။ /price နဲ့ စျေးနှုန်းကြည့်နိုင်ပါတယ်။")
 
 if __name__ == "__main__":
-    # ဒီနေရာက space တွေကို အတိအကျ ထားပေးပါ
+    # Web Server ကို Thread တစ်ခုနဲ့ အရင် Run ပါမယ် (ဒါမှ Render က Live ပေးမှာပါ)
+    threading.Thread(target=run_web).start()
+    # Auto Send ကိုလည်း Thread တစ်ခုနဲ့ Run ပါမယ်
     threading.Thread(target=auto_send_loop, daemon=True).start()
+    
     print("Bot is starting...")
     bot.infinity_polling()

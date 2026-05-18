@@ -33,19 +33,18 @@ def auto_send_loop():
         try:
             prices = get_market_prices()
             if prices:
-                world_news = "• Brent ရေနံဈေး $110.50 နှင့် WTI $106.20 အထိ မြင့်တက်လာပြီး ဈေးကွက်အရှိန်ကောင်းနေ။"
-                local_news = "• QR/Bar Code စနစ်ကို ပဲခူးနှင့် မကွေးလမ်းတလျှောက် မြို့များတွင်ပါ တိုးချဲ့ဆောင်ရွက်။"
-                crypto_news = "• BTC $75,000 ဝန်းကျင်တွင် ထိန်းနေပြီး ETH မှာ $1,950 ဝန်းကျင်တွင် ရှိနေ။"
-                
-                msg = f"📊 <b>Market Update</b>\n<code>BTC: {prices['BTC']}\nETH: {prices['ETH']}\nGold: {prices['Gold']}\nOil: {prices['Oil']}</code>\n\n🌍 <b>World News:</b> {world_news}\n🇲🇲 <b>Local News:</b> {local_news}"
-                
+                msg = f"📊 <b>Market Update</b>\n<code>BTC: {prices['BTC']}\nETH: {prices['ETH']}\nGold: {prices['Gold']}\nOil: {prices['Oil']}</code>"
                 bot.send_message(MY_ID, msg, parse_mode='HTML')
-            time.sleep(3600)
+            time.sleep(3600) # ၁ နာရီတစ်ခါပို့မယ်
         except:
             time.sleep(60)
 
+@bot.message_handler(commands=['start'])
+def start(message):
+    bot.reply_to(message, "Bot အလုပ်လုပ်နေပါပြီခင်ဗျာ။")
+
 if __name__ == "__main__":
-    # စာကြောင်းအစီအစဉ် မှန်အောင် ပြင်ထားပါတယ်
+    # ဒီနေရာက space တွေကို အတိအကျ ထားပေးပါ
     threading.Thread(target=auto_send_loop, daemon=True).start()
     print("Bot is starting...")
     bot.infinity_polling()

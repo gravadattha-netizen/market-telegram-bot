@@ -1,9 +1,9 @@
-import telebot
 import os
-import requests
 import time
+import requests
 import threading
 from flask import Flask
+import telebot
 
 app = Flask('')
 
@@ -15,74 +15,76 @@ def run_web():
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
 
-TOKEN = "8646909789:AAHfAkmDGPgO1unJdxMl4EavLBDXM8V2mkc"
+# Token နှင့် Chat ID (တိုက်ရိုက်ထည့်သွင်းထားသည်)
+TOKEN = "8646909789:AAHfAkmDGPg01unJdxM14EavLBDXM8V2mkc"
 MY_ID = "-1003940722388"
 bot = telebot.TeleBot(TOKEN)
 
 def get_market_data():
-    prices = {"BTC": "N/A", "ETH": "N/A", "WTI": "N/A", "BRENT": "N/A"}
-    
-    # 1. Crypto Fetch (CoinGecko)
+    prices = {"BTC": "N/A", "ETH": "N/A", "GOLD": "N/A", "WTI": "N/A", "BRENT": "N/A"}
+    symbols = {
+        "BTCUSDT": "BTC",
+        "ETHUSDT": "ETH",
+        "PAXGUSDT": "GOLD",
+        "CLUSDT": "WTI",
+        "BZUSDT": "BRENT"
+    }
     try:
-        res = requests.get("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd", timeout=10).json()
-        prices["BTC"] = f"${res['bitcoin']['usd']:,.2f}"
-        prices["ETH"] = f"${res['ethereum']['usd']:,.2f}"
+        # Binance API မှ စျေးနှုန်းများ ဆွဲယူခြင်း
+        res = requests.get("https://api.binance.com/api/v3/ticker/price", timeout=10).json()
+        for item in res:
+            sym = item['symbol']
+            if sym in symbols:
+                price_val = float(item['price'])
+                prices[symbols[sym]] = f"${price_val:,.2f}"
     except Exception as e:
-        print(f"Crypto API Error: {e}")
-
-    # 2. Oil Price Fetch (Using a fallback mechanism to prevent 401/404 errors)
-    try:
-        # ကမ္ဘာ့ရေနံစျေးနှုန်း ပုံမှန်ပြောင်းလဲမှုနှုန်းကို နမူနာအဖြစ် အခြေခံထားသည် (API လိုင်းမကောင်းလျှင် ဤစျေးပြမည်)
-        prices["WTI"] = "$71.85"
-        prices["BRENT"] = "$76.30"
-    except Exception as e:
-        print(f"Oil API Error: {e}")
-        
+        print(f"Binance API Error: {e}")
     return prices
 
-def format_msg(p):
-    return (f"📊 <b>Market Update</b>\n\n"
-            f"₿ <b>BTC:</b> <code>{p['BTC']}</code>\n"
-            f"Ξ <b>ETH:</b> <code>{p['ETH']}</code>\n\n"
-            f"🛢 <b>WTI Crude:</b> <code>{p['WTI']}</code>\n"
-            f"⛽ <b>Brent Crude:</b> <code>{p['BRENT']}</code>")
+def send_update():
+    prices = get_market_data()
+    
+    text = (
+        f"🌟 **မင်္ဂလာရှိသောနေ့လေးဖြစ်ပါစေ** 🌟\n\n"
+        f"📊 **Market Update**\n\n"
+        f"₿ BTC: {prices['BTC']}\n"
+        f"Ξ ETH: {prices['ETH']}\n"
+        f"🟡 Gold (PAXG): {prices['GOLD']}\n"
+        f"⛽ WTI Crude: {prices['WTI']}\n"
+        f"🛢 Brent Crude: {prices['BRENT']}\n\n"
+        f"📢 **အခြားအချက်အလက်များ**\n"
+        f"• \n"
+        f"• \n"
+        f"• \n\n"
+        f"⚠️ _အရောင်းအဝယ်မပြုလုပ်ပါ သတင်းအချက်အလက် မျှဝေခြင်းပါ_"
+    )
+    
+    try:
+        bot.send_message(MY_ID, text, parse_mode="Markdown")
+        print("Message sent successfully!")
+    except Exception as e:
+        print(f"Send Message Error: {e}")
 
-def auto_send():
-    print("📡 Auto Update Thread Triggered...")
+def auto_update_worker():
+    print("Auto Update Thread Started...")
     while True:
-        try:
-            if MY_ID:
-                data = get_market_data()
-                bot.send_message(int(MY_ID), format_msg(data), parse_mode='HTML')
-                print("✅ Hourly Price Update Sent Successfully!")
-            time.sleep(3600)
-        except Exception as e:
-            print(f"Loop Error: {e}")
-            time.sleep(60)
+        send_update()
+        time.sleep(3600)  # ၁ နာရီ (၃၆၀၀ စက္ကန့်) တစ်ခါ အော်တိုပို့မည်
 
 @bot.message_handler(commands=['price'])
 def manual_price(message):
-    try:
-        data = get_market_data()
-        bot.reply_to(message, format_msg(data), parse_mode='HTML')
-    except Exception as e:
-        print(f"Command Error: {e}")
+    send_update()
 
 if __name__ == "__main__":
-    threading.Thread(target=run_web).start()
-    threading.Thread(target=auto_send, daemon=True).start()
-    print("🚀 Bot is starting polling...")
+    # Web Server ကို Thread ဖြင့် ပတ်မည်
+    t_web = threading.Thread(target=run_web)
+    t_web.daemon = True
+    t_web.start()
+    
+    # အော်တို Update ပို့မည့်အလုပ်ကို Thread ဖြင့် ပတ်မည်
+    t_auto = threading.Thread(target=auto_update_worker)
+    t_auto.daemon = True
+    t_auto.start()
+    
+    print("Bot is starting polling...")
     bot.infinity_polling()
-
-# အပေါ်က ကုဒ်ဟောင်းတွေရဲ့ အောက်ဆုံးမှာ...
-
-if __name__ == "__main__":
-    # ၁။ Render ရဲ့ Port စစ်တာ အောင်မြင်အောင် Web Server ကို Thread နဲ့ အရင်နှိုးပါမယ်
-    from threading import Thread
-    t = Thread(target=run_web)
-    t.start()
-    print("Web server started successfully!")
-
-    # ၂။ ပြီးမှ သင့်ရဲ့ Telegram Bot ပို့တဲ့ Loop သို့မဟုတ် Polling function ကို ဒီအောက်မှာ ဆက် run ပါ
-    # ဥပမာ -
-    # bot.infinity_polling()

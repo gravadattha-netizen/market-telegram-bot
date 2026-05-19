@@ -16,8 +16,8 @@ def run_web():
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
 
-# Token နှင့် Chat ID (အစ်ကို့ Bot ပုံစံအတိုင်း တိုက်ရိုက်ထည့်သွင်းထားသည်)
-TOKEN = "8646909789:AAHfAkmDGPgO1unJdxMl4EavLBDXM8V2mkc"
+# Token နှင့် Chat ID
+TOKEN = "8646909789:AAHfAkmDGPg01unJdxM14EavLBDXM8V2mkc"
 MY_ID = "-1003940722388"
 bot = telebot.TeleBot(TOKEN)
 
@@ -64,46 +64,46 @@ def fetch_latest_news():
         )
 
 def get_market_data():
-    """ 🚨 Render မှာ Block မခံရတဲ့ လွတ်လပ်တဲ့ အခြား API လမ်းကြောင်းများမှ တစ်ဆင့် Live စျေးနှုန်းအစစ်ဆွဲယူခြင်း """
-    prices = {"BTC": "N/A", "ETH": "N/A", "GOLD": "N/A", "WTI": "N/A", "BRENT": "N/A"}
+    """ 🚨 Binance Futures (fapi) API စစ်စစ်ထံမှ Live စျေးနှုန်းများ ဆွဲယူခြင်း """
+    prices = {"BTC": "N/A", "ETH": "N/A", "SOL": "N/A", "GOLD": "N/A", "WTI": "N/A", "BRENT": "N/A"}
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
     
-    # ၁။ Crypto (BTC, ETH) စျေးနှုန်းကို CryptoCompare Free API မှ တစ်ဆင့် ရယူခြင်း
+    # ၁။ Binance Futures API ထံမှ စျေးနှုန်းအားလုံးကို တစ်ခါတည်း ဆွဲယူခြင်း
     try:
-        crypto_url = "https://min-api.cryptocompare.com/data/pricemulti?fsyms=BTC,ETH&tsyms=USD"
-        res = requests.get(crypto_url, headers=headers, timeout=12).json()
-        if "BTC" in res:
-            prices["BTC"] = f"${res['BTC']['USD']Context:,.2f}"
-        if "ETH" in res:
-            prices["ETH"] = f"${res['ETH']['USD']:,.2f}"
+        # Binance Futures API endpoint ကို အသုံးပြုပါ
+        binance_url = "https://fapi.binance.com/fapi/v1/ticker/price"
+        res = requests.get(binance_url, headers=headers, timeout=15).json()
+        
+        if isinstance(res, list):
+            for item in res:
+                sym = item.get('symbol')
+                price_val = float(item.get('price', 0))
+                
+                if sym == "BTCUSDT":
+                    prices["BTC"] = f"${price_val:,.2f}"
+                elif sym == "ETHUSDT":
+                    prices["ETH"] = f"${price_val:,.2f}"
+                elif sym == "SOLUSDT":
+                    prices["SOL"] = f"${price_val:,.2f}"
+                elif sym == "PAXGUSDT":
+                    prices["GOLD"] = f"${price_val:,.2f}"
+                elif sym == "CLUSDT":    # WTI Crude Oil
+                    prices["WTI"] = f"${price_val:,.2f}"
+                elif sym == "BZUSDT":    # Brent Crude Oil
+                    prices["BRENT"] = f"${price_val:,.2f}"
     except Exception as e:
-        print(f"CryptoCompare Error: {e}")
+        print(f"Binance Futures API Error: {e}")
 
-    # ၂။ ကမ္ဘာ့ရွှေစျေးနှုန်း (Gold) ကို စိတ်ချရသော အခြား API မှ ရယူခြင်း
-    try:
-        gold_url = "https://api.gold-api.com/price/XAU"
-        res = requests.get(gold_url, headers=headers, timeout=12).json()
-        if "price" in res:
-            prices["GOLD"] = f"${float(res['price']):,.2f}"
-    except Exception as e:
-        # Backup: Crypto PAXG gold token price
+    # ၂။ အကယ်၍ Futures ဘက်မှာ PAXG (ရွှေ) မရှိပါက Spot API ဘက်ကနေ Backup ပြန်ဆွဲပေးမည့်စနစ်
+    if prices["GOLD"] == "N/A":
         try:
-            p_res = requests.get("https://min-api.cryptocompare.com/data/price?fsym=PAXG&tsyms=USD", headers=headers).json()
-            if "USD" in p_res:
-                prices["GOLD"] = f"${float(p_res['USD']):,.2f}"
+            spot_url = "https://api.binance.com/api/v3/ticker/price?symbol=PAXGUSDT"
+            spot_res = requests.get(spot_url, headers=headers, timeout=10).json()
+            if "price" in spot_res:
+                prices["GOLD"] = f"${float(spot_res['price']):,.2f}"
         except:
-            prices["GOLD"] = "$2,435.50"
-
-    # ၃။ ကမ္ဘာ့ရေနံစျေး (WTI, Brent) Live အစစ်ကို ဆွဲယူခြင်း (ပုံသေ $103 စာသား မဟုတ်တော့ပါ)
-    try:
-        oil_url = "https://api.commodities-api.com/api/latest?access_key=YOUR_KEY_IF_NEEDED"
-        # ကမ္ဘာ့ရေနံစျေးနှုန်း သတင်းအချက်အလက်များကို အွန်လိုင်းမှ တိုက်ရိုက်ဖတ်၍ Live အစားထိုးခြင်း
-        # အကယ်၍ API မရပါက လက်ရှိ မေလ ၂၀၂၆ ၏ ပေါက်စျေးအမှန်ဖြင့် ပြောင်းလဲပေးထားပါသည်
-        prices["WTI"] = "$71.85"
-        prices["BRENT"] = "$76.30"
-    except Exception as e:
-        prices["WTI"] = "$71.85"
-        prices["BRENT"] = "$76.30"
+            # ၎င်းနေရာတွင် စျေးနှုန်းပုံသေမသုံးပါနှင့်
+            print("PAXG Gold Price error.")
 
     return prices
 
@@ -116,6 +116,7 @@ def generate_message_text():
         f"📊 **Market Update**\n\n"
         f"₿ BTC: {prices['BTC']}\n"
         f"Ξ ETH: {prices['ETH']}\n"
+        f"SOL: {prices['SOL']}\n"
         f"🟡 Gold (PAXG): {prices['GOLD']}\n"
         f"⛽ WTI Crude: {prices['WTI']}\n"
         f"🛢 Brent Crude: {prices['BRENT']}\n\n"

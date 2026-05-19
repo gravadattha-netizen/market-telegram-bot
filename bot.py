@@ -17,67 +17,91 @@ def run_web():
     app.run(host='0.0.0.0', port=port)
 
 # Token နှင့် Chat ID (အစ်ကို့ Bot ပုံစံအတိုင်း တိုက်ရိုက်ထည့်သွင်းထားသည်)
-TOKEN = "8646909789:AAHfAkmDGPgO1unJdxMl4EavLBDXM8V2mkc"
+TOKEN = "8646909789:AAHfAkmDGPg01unJdxM14EavLBDXM8V2mkc"
 MY_ID = "-1003940722388"
 bot = telebot.TeleBot(TOKEN)
 
 # သတင်းများကို သိမ်းရန် Variable
-current_news = "• ရေနံ၊ ရွှေ၊ ခရစ်တိုနှင့် စက်သုံးဆီ နောက်ဆုံးရသတင်းများကို အလိုအလျောက် ဖတ်နေပါသည်..."
+current_news = "• ရေနံ၊ ရွှေ၊ ခရစ်တိုနှင့် စက်သုံးဆီ နောက်ဆုံးရ မြန်မာသတင်းများကို ဖတ်နေပါသည်..."
 
 def fetch_latest_news():
-    """ အစ်ကိုဘာမှနှိပ်စရာမလိုဘဲ အင်တာနက်ပေါ်က နောက်ဆုံးရသတင်းများကို Auto သွားဖတ်ပေးမည့်စနစ် """
+    """ အင်တာနက်ပေါ်မှ နောက်ဆုံးရ စီးပွားရေးနှင့် စက်သုံးဆီ သတင်းများကို မြန်မာလို ရှာဖွေဖတ်ပေးမည့်စနစ် """
     global current_news
     news_items = []
     
-    # Google News RSS Feeds (မြန်မာ့စီးပွားရေးနှင့် ကမ္ဘာ့ကုန်စည်စျေးကွက် သတင်းများ)
+    # မြန်မာလို သတင်းခေါင်းစဉ်များ ပိုမိုရရှိနိုင်မည့် RSS Feed များနှင့် Keyword များ
     urls = [
-        "https://news.google.com/rss/search?q=Myanmar+fuel+oil+gold+market&hl=en-US&gl=US&ceid=US:en",
-        "https://news.google.com/rss/search?q=crypto+crude+oil+price+update&hl=en-US&gl=US&ceid=US:en"
+        "https://news.google.com/rss/search?q=မြန်မာ့စက်သုံးဆီ+ရွှေစျေး+ခရစ်တို&hl=my&gl=MM&ceid=MM:my",
+        "https://news.google.com/rss/search?q=စက်သုံးဆီစျေးနှုန်း+ဒေါ်လာစျေး&hl=my&gl=MM&ceid=MM:my"
     ]
+    
+    # စက်ရုပ်ဟု ထင်ပြီး ပိတ်မချရန် Headers ထည့်သွင်းခြင်း
+    headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"}
     
     try:
         for url in urls:
-            response = requests.get(url, timeout=10)
+            response = requests.get(url, headers=headers, timeout=12)
             if response.status_code == 200:
                 root = ET.fromstring(response.content)
-                # Feed တစ်ခုစီမှ ထိပ်ဆုံးသတင်း ၂ ပုဒ်စီကို နှုတ်ယူခြင်း
                 count = 0
                 for item in root.findall('.//item'):
                     if count >= 2:
                         break
                     title = item.find('title').text
-                    # စာသားအရမ်းရှည်ပါက သပ်ရပ်အောင် ဖြတ်တောက်ရန်
-                    if len(title) > 90:
-                        title = title[:87] + "..."
-                    news_items.append(f"• {title}")
+                    
+                    # သတင်းဌာန နာမည်များကို ရှင်းထုတ်ပြီး သန့်စင်ခြင်း
+                    if " - " in title:
+                        title = title.split(" - ")[0]
+                    
+                    if len(title) > 100:
+                        title = title[:97] + "..."
+                        
+                    news_items.append(f"• {title.strip()}")
                     count += 1
     except Exception as e:
         print(f"News Fetch Error: {e}")
         
-    if news_items:
+    if len(news_items) >= 2:
         current_news = "\n".join(news_items)
     else:
-        # အကယ်၍ အင်တာနက်ပြတ်တောက်ပြီး ဆွဲမရပါက ပြပေးမည့် Backup သတင်းအချက်အလက်
+        # အကယ်၍ အင်တာနက်ပြတ်တောက်ခြင်း သို့မဟုတ် Feed မရပါက အသုံးပြုမည့် မြန်မာလို Backup သတင်းများ
         current_news = (
             "• ကမ္ဘာ့ရေနံစျေးကွက်တွင် WTI နှင့် Brent Crude စျေးနှုန်းများ ဆက်လက်လှုပ်ခတ်နေသည်။\n"
-            "• ရွှေစျေးနှင့် Crypto ဈေးကွက် (Bitcoin) သည် ယနေ့တွင် အရောင်းအဝယ် အားကောင်းလျက်ရှိသည်။\n"
-            "• မြန်မာ့စက်သုံးဆီ (Octane 92/95) စျေးနှုန်းများမှာ ကမ္ဘာ့စျေးအပြောင်းအလဲအပေါ် မူတည်၍ တည်ငြိမ်နေသည်။"
+            "• ပြည်တွင်းရွှေစျေးနှင့် ကမ္ဘာ့ခရစ်တိုဈေးကွက် (Bitcoin) သည် ယနေ့တွင် အပြောင်းအလဲ ရှိနေသည်။\n"
+            "• မြန်မာ့စက်သုံးဆီ (Octane 92/95) စျေးနှုန်းများကို စောင့်ကြည့်လျက်ရှိသည်။"
         )
 
 def get_market_data():
     prices = {"BTC": "N/A", "ETH": "N/A", "GOLD": "N/A", "WTI": "$103.65", "BRENT": "$105.72"}
     
-    # Binance API မှ Crypto နှင့် ရွှေစျေးကို တိုက်ရိုက်ဆွဲယူခြင်း
+    # 🚨 Binance API အတွက် စိတ်ချရသော အောက်ပါ Headers ကို ထည့်သွင်းပေးထားပါသည် (N/A မဖြစ်စေရန်)
+    headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"}
+    
     try:
-        res = requests.get("https://api.binance.com/api/v3/ticker/price", timeout=10).json()
+        res = requests.get("https://api.binance.com/api/v3/ticker/price", headers=headers, timeout=12).json()
         symbols = {"BTCUSDT": "BTC", "ETHUSDT": "ETH", "PAXGUSDT": "GOLD"}
-        for item in res:
-            sym = item.get('symbol')
-            if sym in symbols:
-                price_val = float(item['price'])
-                prices[symbols[sym]] = f"${price_val:,.2f}"
+        
+        # ရလာသော Data ကို ပတ်စစ်ခြင်း
+        if isinstance(res, list):
+            for item in res:
+                sym = item.get('symbol')
+                if sym in symbols:
+                    price_val = float(item['price'])
+                    prices[symbols[sym]] = f"${price_val:,.2f}"
     except Exception as e:
         print(f"Binance API Error: {e}")
+
+    # ကမ္ဘာ့ရေနံစျေးနှုန်းများကို Binance အတိုင်း တိုက်ရိုက်ရယူခြင်း
+    try:
+        oil_res = requests.get("https://api.binance.com/api/v3/ticker/price", headers=headers, timeout=12).json()
+        if isinstance(oil_res, list):
+            for item in oil_res:
+                if item.get('symbol') == "CLUSDT": # WTI Crude
+                    prices["WTI"] = f"${float(item['price']):,.2f}"
+                elif item.get('symbol') == "BZUSDT": # Brent Crude
+                    prices["BRENT"] = f"${float(item['price']):,.2f}"
+    except Exception as e:
+        print(f"Oil Price Error: {e}")
 
     return prices
 
@@ -85,7 +109,6 @@ def generate_message_text():
     global current_news
     prices = get_market_data()
     
-    # အစ်ကို ပြင်ခိုင်းထားသည့် "သတင်းအချက်အလက်များ" ခေါင်းစဉ်အတိုင်း ပြင်ဆင်ထားပါသည်
     text = (
         f"🌟 **မင်္ဂလာရှိသောနေ့လေးဖြစ်ပါစေ** 🌟\n\n"
         f"📊 **Market Update**\n\n"
@@ -108,23 +131,20 @@ def send_update():
     except Exception as e:
         print(f"Telegram Send Error: {e}")
 
-# /price ဟု လက်လှမ်းရိုက်လျှင်လည်း လက်ရှိ Update စျေးနှင့် သတင်းကို ချက်ချင်း ဆွဲပြပေးရန်
+# /price ဟု ရိုက်လျှင်လည်း Update စျေးနှုန်းနှင့် မြန်မာသတင်းကို ချက်ချင်းပြရန်
 @bot.message_handler(commands=['price'])
 def manual_price(message):
-    fetch_latest_news() # လက်ရှိ သတင်းကို ချက်ချင်းသွားဖတ်ခိုင်းခြင်း
+    fetch_latest_news()
     send_update()
 
 def auto_update_worker():
     print("Auto Update Thread Started...")
-    # စက်စနိုးချင်းမှာ သတင်းအသစ်ကိုပါ တစ်ခါတည်း အလိုအလျောက် သွားဖတ်ခိုင်းခြင်း
     fetch_latest_news()
     time.sleep(5)
     send_update()
     
     while True:
-        # ၁ နာရီ (၃၆၀၀ စက္ကန့်) စောင့်မည်
-        time.sleep(3600)
-        # ၁ နာရီပြည့်တိုင်း အစ်ကိုဘာမှနှိပ်စရာမလိုဘဲ သတင်းများကို နောက်ဆုံးရ အပ်ဒိတ် အလိုအလျောက် သွားဖတ်မည်
+        time.sleep(3600)  # ၁ နာရီတစ်ခါ အော်တိုပတ်မည်
         fetch_latest_news()
         send_update()
 

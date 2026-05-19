@@ -15,7 +15,7 @@ def run_web():
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
 
-TOKEN = "8646909789:AAHfAkmDGPg01unJdxMl4EavLBDXM8V2mkc"
+TOKEN = "8646909789:AAHfAkmDGPgO1unJdxMl4EavLBDXM8V2mkc"
 MY_ID = "-1003940722388"
 bot = telebot.TeleBot(TOKEN)
 
@@ -73,3 +73,16 @@ if __name__ == "__main__":
     threading.Thread(target=auto_send, daemon=True).start()
     print("🚀 Bot is starting polling...")
     bot.infinity_polling()
+
+# အပေါ်က ကုဒ်ဟောင်းတွေရဲ့ အောက်ဆုံးမှာ...
+
+if __name__ == "__main__":
+    # ၁။ Render ရဲ့ Port စစ်တာ အောင်မြင်အောင် Web Server ကို Thread နဲ့ အရင်နှိုးပါမယ်
+    from threading import Thread
+    t = Thread(target=run_web)
+    t.start()
+    print("Web server started successfully!")
+
+    # ၂။ ပြီးမှ သင့်ရဲ့ Telegram Bot ပို့တဲ့ Loop သို့မဟုတ် Polling function ကို ဒီအောက်မှာ ဆက် run ပါ
+    # ဥပမာ -
+    # bot.infinity_polling()

@@ -15,8 +15,8 @@ def run_web():
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
 
-TOKEN = "8646909789:AAHfAkmDGPg01unJdxMl4EavLBDXM8V2mkc"
-MY_ID = os.getenv('MY_ID')
+TOKEN = "8646909789:AAHfAkmDGPg01unJdxMl4EavLBDXM8V2mkcc"
+MY_ID = "-1003940722388"
 bot = telebot.TeleBot(TOKEN)
 
 def get_market_data():

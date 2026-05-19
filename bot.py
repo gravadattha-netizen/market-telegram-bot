@@ -15,7 +15,7 @@ def run_web():
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
 
-# Token နှင့် Chat ID (တိုက်ရိုက်ထည့်သွင်းထားသည်)
+# Token နှင့် Chat ID (တိုက်ရိုက် အမှန်ထည့်သွင်းထားသည်)
 TOKEN = "8646909789:AAHfAkmDGPg01unJdxM14EavLBDXM8V2mkc"
 MY_ID = "-1003940722388"
 bot = telebot.TeleBot(TOKEN)
@@ -44,6 +44,7 @@ def get_market_data():
 def send_update():
     prices = get_market_data()
     
+    # တောင်းဆိုထားသည့်အတိုင်း စာသားပုံစံ ပြင်ဆင်ခြင်း
     text = (
         f"🌟 **မင်္ဂလာရှိသောနေ့လေးဖြစ်ပါစေ** 🌟\n\n"
         f"📊 **Market Update**\n\n"
@@ -67,21 +68,26 @@ def send_update():
 
 def auto_update_worker():
     print("Auto Update Thread Started...")
+    # စက်နိုးနိုးချင်း ၅ စက္ကန့်အတွင်း Group ထဲကို ချက်ချင်း စာတစ်ခေါက် အရင်ပို့မည်
+    time.sleep(5)
+    send_update()
+    
+    # ထို့နောက်ပိုင်းတွင်မှ ၁ နာရီတစ်ခါ ပုံမှန် ပတ်သွားမည်
     while True:
+        time.sleep(3600)
         send_update()
-        time.sleep(3600)  # ၁ နာရီ (၃၆၀၀ စက္ကန့်) တစ်ခါ အော်တိုပို့မည်
 
 @bot.message_handler(commands=['price'])
 def manual_price(message):
     send_update()
 
 if __name__ == "__main__":
-    # Web Server ကို Thread ဖြင့် ပတ်မည်
+    # Web Server ပတ်ခြင်း
     t_web = threading.Thread(target=run_web)
     t_web.daemon = True
     t_web.start()
     
-    # အော်တို Update ပို့မည့်အလုပ်ကို Thread ဖြင့် ပတ်မည်
+    # အော်တို Update ပို့မည့် အလုပ်ကို Thread ပတ်ခြင်း
     t_auto = threading.Thread(target=auto_update_worker)
     t_auto.daemon = True
     t_auto.start()

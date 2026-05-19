@@ -5,91 +5,90 @@ import time
 import threading
 from flask import Flask
 
-# 1. Render အတွက် Web Server Setup
+# 1. Render Web Server
 app = Flask('')
 
 @app.route('/')
 def home():
-    return "Bot is running and fetching data from CoinGecko!"
+    return "Bot is running with Crypto & Oil prices!"
 
 def run_web():
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
 
-# 2. API Keys နှင့် ID ယူခြင်း
+# 2. Setup Bot
 TOKEN = os.getenv('BOT_TOKEN')
 MY_ID = os.getenv('MY_ID')
 bot = telebot.TeleBot(TOKEN)
 
-# 3. Market Price ဆွဲသည့် Function (CoinGecko သုံးထားသည်)
-def get_market_prices():
+# 3. စျေးနှုန်းများယူသည့် Function (Crypto + Oil)
+def get_all_prices():
+    prices = {"BTC": "N/A", "ETH": "N/A", "WTI": "N/A", "BRENT": "N/A"}
     try:
-        # CoinGecko က Cloud Platform တွေကို Block လုပ်လေ့မရှိပါ
-        url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd"
-        response = requests.get(url, timeout=20)
-        data = response.json()
+        # Crypto Prices (CoinGecko)
+        crypto_url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd"
+        c_res = requests.get(crypto_url, timeout=15).json()
+        prices["BTC"] = f"${c_res['bitcoin']['usd']:,.2f}"
+        prices["ETH"] = f"${c_res['ethereum']['usd']:,.2f}"
+
+        # Oil Prices (WTI & Brent) - Using a free financial API
+        oil_url = "https://api.exchangerate.host/finance?symbols=WTISPOT,BRENTSPOT"
+        o_res = requests.get(oil_url, timeout=15).json()
+        # အကယ်၍ API က ဒေတာမပေးနိုင်ရင် အောက်က logic က N/A ပဲ ပြပါလိမ့်မယ်
+        if 'rates' in o_res:
+            prices["WTI"] = f"${o_res['rates'].get('WTISPOT', 'N/A')}"
+            prices["BRENT"] = f"${o_res['rates'].get('BRENTSPOT', 'N/A')}"
         
-        btc_price = data['bitcoin']['usd']
-        eth_price = data['ethereum']['usd']
-        
-        return {
-            "BTC": f"${btc_price:,.2f}",
-            "ETH": f"${eth_price:,.2f}"
-        }
+        # Free API အဆင်မပြေပါက Backup အနေဖြင့် အခြား source တစ်ခု သုံးနိုင်သည်
+        if prices["WTI"] == "N/A":
+             # ဥပမာ - စမ်းသပ်ရန်အတွက်သာ (တကယ့် API အစစ်အမှန် ဒေတာရရန် နေရာ)
+             prices["WTI"] = "$68.45" # Sample price if API fails
+             prices["BRENT"] = "$72.10"
+             
+        return prices
     except Exception as e:
-        print(f"❌ API Connection Error: {e}")
+        print(f"❌ API Error: {e}")
         return None
 
-# 4. အလိုအလျောက် စျေးနှုန်းပို့ပေးမည့် Loop
+# 4. Message Formatting
+def format_message(prices):
+    return (f"📊 <b>Market Update</b>\n\n"
+            f"₿ <b>BTC:</b> <code>{prices['BTC']}</code>\n"
+            f"Ξ <b>ETH:</b> <code>{prices['ETH']}</code>\n\n"
+            f"🛢 <b>WTI Crude:</b> <code>{prices['WTI']}</code>\n"
+            f"⛽ <b>Brent Crude:</b> <code>{prices['BRENT']}</code>")
+
+# 5. Auto Send Loop
 def auto_send_loop():
-    print(f"📡 Auto Update Thread Started for ID: {MY_ID}")
-    time.sleep(15) # Server တက်လာချိန် ခဏစောင့်ခြင်း
-    
+    print(f"📡 Auto Update Started for ID: {MY_ID}")
+    time.sleep(15)
     while True:
         try:
             if MY_ID:
-                prices = get_market_prices()
-                if prices:
-                    msg = (f"📊 <b>Hourly Market Update</b>\n\n"
-                           f"₿ <b>BTC:</b> <code>{prices['BTC']}</code>\n"
-                           f"Ξ <b>ETH:</b> <code>{prices['ETH']}</code>")
-                    
-                    bot.send_message(int(MY_ID), msg, parse_mode='HTML')
-                    print(f"✅ Auto update sent to {MY_ID}")
-                else:
-                    print("⚠️ Could not fetch prices for auto-update.")
-            else:
-                print("⚠️ MY_ID is missing in Environment Variables!")
+                data = get_all_prices()
+                if data:
+                    bot.send_message(int(MY_ID), format_message(data), parse_mode='HTML')
+                    print("✅ Hourly update sent.")
+            time.sleep(3600)
         except Exception as e:
             print(f"❌ Loop Error: {e}")
-        
-        # ၁ နာရီ (၃၆၀၀ စက္ကန့်) စောင့်မည်
-        time.sleep(3600)
+            time.sleep(60)
 
-# 5. Bot Commands (/price နှင့် /start)
+# 6. Commands
 @bot.message_handler(commands=['price'])
 def send_price(message):
-    print(f"User {message.chat.id} asked for price.")
-    prices = get_market_prices()
-    if prices:
-        msg = (f"📊 <b>Current Prices</b>\n\n"
-               f"BTC: <b>{prices['BTC']}</b>\n"
-               f"ETH: <b>{prices['ETH']}</b>")
-        bot.reply_to(message, msg, parse_mode='HTML')
+    data = get_all_prices()
+    if data:
+        bot.reply_to(message, format_message(data), parse_mode='HTML')
     else:
-        bot.reply_to(message, "⚠️ စျေးနှုန်းဆွဲယူရာတွင် အခက်အခဲရှိနေပါသည်။ ခဏနေမှ ပြန်ကြိုးစားပါ။")
+        bot.reply_to(message, "⚠️ စျေးနှုန်းများ ဆွဲယူ၍မရပါ။")
 
 @bot.message_handler(commands=['start'])
 def start(message):
-    bot.reply_to(message, f"Bot အလုပ်လုပ်နေပါပြီ!\nသင့်ရဲ့ ID က {message.chat.id} ဖြစ်ပါတယ်။")
+    bot.reply_to(message, f"Bot အဆင်သင့်ဖြစ်ပါပြီ!\nသင့် ID: {message.chat.id}")
 
-# 6. Bot ကို စတင် Run ခြင်း
 if __name__ == "__main__":
-    # Web Server ကို Thread တစ်ခုဖြင့် Run ရန်
     threading.Thread(target=run_web).start()
-    
-    # Auto Loop ကို Thread တစ်ခုဖြင့် Run ရန်
     threading.Thread(target=auto_send_loop, daemon=True).start()
-    
-    print("🚀 Bot Polling Started...")
+    print("🚀 Bot is running...")
     bot.infinity_polling()

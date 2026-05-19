@@ -5,79 +5,91 @@ import time
 import threading
 from flask import Flask
 
-# 1. Flask Server Setup
+# 1. Render အတွက် Web Server Setup
 app = Flask('')
 
 @app.route('/')
 def home():
-    return "Bot is live!"
+    return "Bot is running and fetching data from CoinGecko!"
 
 def run_web():
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
 
-# 2. Setup Bot
+# 2. API Keys နှင့် ID ယူခြင်း
 TOKEN = os.getenv('BOT_TOKEN')
 MY_ID = os.getenv('MY_ID')
 bot = telebot.TeleBot(TOKEN)
 
-# 3. စျေးနှုန်းဆွဲယူသည့် Function (Binance API ကို ရိုးရိုးရှင်းရှင်း ပြန်ပြင်ထားသည်)
+# 3. Market Price ဆွဲသည့် Function (CoinGecko သုံးထားသည်)
 def get_market_prices():
     try:
-        # BTC Price
-        btc_res = requests.get('https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT', timeout=10).json()
-        # ETH Price
-        eth_res = requests.get('https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDT', timeout=10).json()
+        # CoinGecko က Cloud Platform တွေကို Block လုပ်လေ့မရှိပါ
+        url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd"
+        response = requests.get(url, timeout=20)
+        data = response.json()
         
-        btc = float(btc_res['price'])
-        eth = float(eth_res['price'])
-
+        btc_price = data['bitcoin']['usd']
+        eth_price = data['ethereum']['usd']
+        
         return {
-            "BTC": f"${btc:,.2f}",
-            "ETH": f"${eth:,.2f}"
+            "BTC": f"${btc_price:,.2f}",
+            "ETH": f"${eth_price:,.2f}"
         }
     except Exception as e:
-        print(f"API Error: {e}")
+        print(f"❌ API Connection Error: {e}")
         return None
 
-# 4. Auto Send Loop
+# 4. အလိုအလျောက် စျေးနှုန်းပို့ပေးမည့် Loop
 def auto_send_loop():
-    print(f"Auto Loop Started for ID: {MY_ID}")
-    time.sleep(10)
+    print(f"📡 Auto Update Thread Started for ID: {MY_ID}")
+    time.sleep(15) # Server တက်လာချိန် ခဏစောင့်ခြင်း
+    
     while True:
         try:
             if MY_ID:
                 prices = get_market_prices()
                 if prices:
-                    msg = (f"📊 <b>Market Update</b>\n\n"
+                    msg = (f"📊 <b>Hourly Market Update</b>\n\n"
                            f"₿ <b>BTC:</b> <code>{prices['BTC']}</code>\n"
                            f"Ξ <b>ETH:</b> <code>{prices['ETH']}</code>")
+                    
                     bot.send_message(int(MY_ID), msg, parse_mode='HTML')
-                    print("✅ Update Sent!")
-            time.sleep(3600) # ၁ နာရီတစ်ခါ ပို့မည်
+                    print(f"✅ Auto update sent to {MY_ID}")
+                else:
+                    print("⚠️ Could not fetch prices for auto-update.")
+            else:
+                print("⚠️ MY_ID is missing in Environment Variables!")
         except Exception as e:
-            print(f"Loop Error: {e}")
-            time.sleep(60)
+            print(f"❌ Loop Error: {e}")
+        
+        # ၁ နာရီ (၃၆၀၀ စက္ကန့်) စောင့်မည်
+        time.sleep(3600)
 
-# 5. Commands
+# 5. Bot Commands (/price နှင့် /start)
 @bot.message_handler(commands=['price'])
 def send_price(message):
+    print(f"User {message.chat.id} asked for price.")
     prices = get_market_prices()
     if prices:
-        msg = f"📊 <b>Current Prices</b>\n\nBTC: {prices['BTC']}\nETH: {prices['ETH']}"
+        msg = (f"📊 <b>Current Prices</b>\n\n"
+               f"BTC: <b>{prices['BTC']}</b>\n"
+               f"ETH: <b>{prices['ETH']}</b>")
         bot.reply_to(message, msg, parse_mode='HTML')
     else:
-        bot.reply_to(message, "⚠️ API Error: စျေးနှုန်းဆွဲမရဖြစ်နေပါသည်။")
+        bot.reply_to(message, "⚠️ စျေးနှုန်းဆွဲယူရာတွင် အခက်အခဲရှိနေပါသည်။ ခဏနေမှ ပြန်ကြိုးစားပါ။")
 
 @bot.message_handler(commands=['start'])
 def start(message):
-    bot.reply_to(message, f"Bot အလုပ်လုပ်နေပါပြီ! သင့်ရဲ့ ID က {message.chat.id} ဖြစ်ပါတယ်။")
+    bot.reply_to(message, f"Bot အလုပ်လုပ်နေပါပြီ!\nသင့်ရဲ့ ID က {message.chat.id} ဖြစ်ပါတယ်။")
 
-# 6. Run Bot
+# 6. Bot ကို စတင် Run ခြင်း
 if __name__ == "__main__":
-    # Threading သုံးပြီး အလုပ်ခွဲလုပ်ခိုင်းခြင်း
+    # Web Server ကို Thread တစ်ခုဖြင့် Run ရန်
     threading.Thread(target=run_web).start()
-    threading.Thread(target=auto_send_loop).start()
     
-    print("Bot is starting...")
+    # Auto Loop ကို Thread တစ်ခုဖြင့် Run ရန်
+    threading.Thread(target=auto_send_loop, daemon=True).start()
+    
+    print("🚀 Bot Polling Started...")
     bot.infinity_polling()

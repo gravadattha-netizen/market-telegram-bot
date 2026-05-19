@@ -16,7 +16,7 @@ def run_web():
     app.run(host='0.0.0.0', port=port)
 
 # Token နှင့် Chat ID (အစ်ကို့ Bot ပုံစံအတိုင်း တိုက်ရိုက်ထည့်သွင်းထားသည်)
-TOKEN = "8646909789:AAHfAkmDGPg01unJdxM14EavLBDXM8V2mkc"
+TOKEN = "8646909789:AAHfAkmDGPgO1unJdxMl4EavLBDXM8V2mkc"
 MY_ID = "-1003940722388"
 bot = telebot.TeleBot(TOKEN)
 

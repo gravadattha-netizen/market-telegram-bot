@@ -10,20 +10,25 @@ app = Flask('')
 
 @app.route('/')
 def home():
-    return "Market Bot with 4-Hour Interval is Active!"
+    return "Market Bot (Telegram + Viber) is Active!"
 
 def run_web():
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
 
-# Token နှင့် Chat ID (အစ်ကို့ Bot ပုံစံအတိုင်း တိုက်ရိုက်ထည့်သွင်းထားသည်)
-TOKEN = "8646909789:AAHfAkmDGPgO1unJdxMl4EavLBDXM8V2mkc"
-MY_ID = "-1003940722388"
-bot = telebot.TeleBot(TOKEN)
+# ======= [ 1. TELEGRAM CONFIG ] =======
+TG_TOKEN = "8646909789:AAHfAkmDGPgO1unJdxMl4EavLBDXM8V2mkc"
+TG_CHAT_ID = "-1003940722388"
+bot = telebot.TeleBot(TG_TOKEN)
+
+# ======= [ 2. VIBER CONFIG ] =======
+# အစ်ကို့ရဲ့ Viber Token နှင့် Chat ID ကို ကွက်တိ ထည့်သွင်းပေးထားပါသည်
+VIBER_TOKEN = "515a44391e843e1d-c6a85536be62b3df-ef03348c4de8da51"
+VIBER_CHAT_ID = "pa:6234918750239185"
 
 # ကမ္ဘာ့ကုန်စည်ဈေးကွက် သတင်းမျိုးစုံ ပုံစံများ
 oil_news_pool = [
-    "WTI နှင့် Brent Crude ရေနံစိမ်းဈေးကွက်တွင် ရောင်းလိုအား လိုအပ်ချက်ကြောင့် ဈေးနှုန်းများ ပြန်လည်မြင့်တက်လှုပ်ခတ်လာသည်။",
+    "WTI နှင့် Brent Crude ရေနံစိမ်းဈေးကွက်တွင် ရောင်းလိုအား လိုချက်ကြောင့် ဈေးနှုန်းများ ပြန်လည်မြင့်တက်လှုပ်ခတ်လာသည်။",
     "နိုင်ငံတကာ စက်သုံးဆီဈေးကွက်အတွင်း အရောင်းအဝယ်အေးပြီး ရေနံစိမ်းပေါက်ဈေးနှုန်းများ ယနေ့တွင် အနည်းငယ် ပြန်လည်ကျဆင်းလာသည်။",
     "ကမ္ဘာ့ရေနံစိမ်းထုတ်လုပ်မှု ကန့်သတ်ချက် ဂယက်ကြောင့် WTI ရေနံဈေးကွက်တွင် အရောင်းအဝယ် ဆက်လက် သွက်နေသည်။",
     "အရှေ့အလယ်ပိုင်းအခြေအနေနှင့် ကမ္ဘာ့စက်သုံးဆီ လိုအပ်ချက်ကြောင့် ရေနံစိမ်းဈေးနှုန်းများ ယနေ့တွင် အပြောင်းအလဲ မြန်ဆန်နေသည်။"
@@ -44,10 +49,7 @@ crypto_news_pool = [
 ]
 
 def generate_live_news():
-    """ 📢 အချိန်စနစ် (Timestamp) နှင့် ကျဘန်းစနစ်ဖြင့် သတင်းကို ၄ နာရီတစ်ခါ အသစ်ထုတ်ပေးခြင်း """
-    # မြန်မာစံတော်ချိန် တွက်ချက်ခြင်း (+6:30 standard)
     current_time = time.strftime("%I:%M %p", time.localtime(time.time() + 23400))
-    
     oil_part = random.choice(oil_news_pool)
     gold_part = random.choice(gold_news_pool)
     crypto_part = random.choice(crypto_news_pool)
@@ -60,7 +62,6 @@ def generate_live_news():
     return formatted_news
 
 def get_market_data():
-    """ 📈 Crypto နှင့် ရေနံဈေးနှုန်းများ Live အစစ်ကို ရယူခြင်း """
     prices = {"BTC": "N/A", "ETH": "N/A", "SOL": "N/A", "GOLD": "N/A", "WTI": "N/A", "BRENT": "N/A"}
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
     timestamp = int(time.time())
@@ -94,45 +95,67 @@ def get_market_data():
 
     return prices
 
-def generate_message_text():
+def generate_message_text(is_viber=False):
     prices = get_market_data()
     current_news = generate_live_news()
     
+    # Viber နှင့် Telegram စာလုံးအလှဆင်စနစ် မတူသောကြောင့် ခွဲခြားပေးခြင်း
+    b = "*" if is_viber else "**"
+    
     text = (
-        f"🌟 **မင်္ဂလာရှိသောနေ့လေးဖြစ်ပါစေ** 🌟\n\n"
-        f"📊 **Market Update**\n\n"
+        f"🌟 {b}မင်္ဂလာရှိသောနေ့လေးဖြစ်ပါစေ{b} 🌟\n\n"
+        f"📊 {b}Market Update{b}\n\n"
         f"₿ BTC: {prices['BTC']}\n"
         f"Ξ ETH: {prices['ETH']}\n"
         f"SOL: {prices['SOL']}\n"
         f"🟡 Gold (PAXG): {prices['GOLD']}\n"
         f"⛽ WTI Crude: {prices['WTI']}\n"
         f"🛢 Brent Crude: {prices['BRENT']}\n\n"
-        f"📢 **သတင်းအချက်အလက်များ**\n"
+        f"📢 {b}သတင်းအချက်အလက်များ{b}\n"
         f"{current_news}\n\n"
         f"⚠️ _အရောင်းအဝယ်မပြုလုပ်ပါ သတင်းအချက်အလက် မျှဝေခြင်းပါ_"
     )
     return text
 
-def send_update():
-    text = generate_message_text()
+def send_update_to_all():
+    """ Telegram နှင့် Viber သို့ တပြိုင်နက်တည်း Auto စာလှမ်းပို့ပေးမည့် စနစ်သစ် """
+    # ၁။ Telegram သို့ ပို့ခြင်း
+    tg_text = generate_message_text(is_viber=False)
     try:
-        bot.send_message(MY_ID, text, parse_mode="Markdown")
-        print("Message sent successfully!")
+        bot.send_message(TG_CHAT_ID, tg_text, parse_mode="Markdown")
+        print("Telegram message sent successfully!")
     except Exception as e:
         print(f"Telegram Send Error: {e}")
 
+    # ၂။ Viber သို့ ပို့ခြင်း
+    viber_text = generate_message_text(is_viber=True)
+    viber_url = "https://chatapi.viber.com/pa/send_message"
+    viber_headers = {"X-Viber-Auth-Token": VIBER_TOKEN}
+    viber_payload = {
+        "receiver": VIBER_CHAT_ID,
+        "min_api_version": 1,
+        "sender": {"name": "Market Live Report"},
+        "type": "text",
+        "text": viber_text
+    }
+    try:
+        res = requests.post(viber_url, json=viber_payload, headers=viber_headers, timeout=10)
+        print(f"Viber response: {res.status_code}")
+    except Exception as e:
+        print(f"Viber Send Error: {e}")
+
 @bot.message_handler(commands=['price'])
 def manual_price(message):
-    send_update()
+    send_update_to_all()
 
 def auto_update_worker():
     print("Auto Update Thread Started (4-Hour Interval)...")
     time.sleep(5)
-    send_update()
+    send_update_to_all()
     
     while True:
-        time.sleep(14400)  # 🚨 စက္ကန့် ၁၄၄၀၀ (ဆိုလိုသည်မှာ ကွက်တိ ၄ နာရီ) စောင့်ပြီးမှ ပို့မည်
-        send_update()
+        time.sleep(14400)  # ၄ နာရီတစ်ခါ ကွက်တိ အော်တိုပတ်မည်
+        send_update_to_all()
 
 if __name__ == "__main__":
     t_web = threading.Thread(target=run_web)

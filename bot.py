@@ -22,11 +22,9 @@ TG_CHAT_ID = "-1003940722388"
 bot = telebot.TeleBot(TG_TOKEN)
 
 # ======= [ 2. VIBER CONFIG ] =======
-# အစ်ကို့ Community အတွက် ကွက်တိ ရှာဖွေပြင်ဆင်ပေးထားသော ID အစစ်ဖြစ်ပါသည်
 VIBER_TOKEN = "515a44391e843e1d-c6a85536be62b3df-ef03348c4de8da51"
 VIBER_CHAT_ID = "gM7EonpInpS+560GZ/258w=="
 
-# ကမ္ဘာ့ကုန်စည်ဈေးကွက် သတင်းမျိုးစုံ ပုံစံများ
 oil_news_pool = [
     "WTI နှင့် Brent Crude ရေနံစိမ်းဈေးကွက်တွင် ရောင်းလိုအား လိုချက်ကြောင့် ဈေးနှုန်းများ ပြန်လည်မြင့်တက်လှုပ်ခတ်လာသည်။",
     "နိုင်ငံတကာ စက်သုံးဆီဈေးကွက်အတွင်း အရောင်းအဝယ်အေးပြီး ရေနံစိမ်းပေါက်ဈေးနှုန်းများ ယနေ့တွင် အနည်းငယ် ပြန်လည်ကျဆင်းလာသည်။",
@@ -125,20 +123,19 @@ def send_update_to_all():
     except Exception as e:
         print(f"Telegram Send Error: {e}")
 
-    # ၂။ Viber သို့ ပို့ခြင်း
+    # ၂။ Viber Community သို့ ပို့ခြင်း (အမှန်ကန်ဆုံး ပုံစံသို့ ပြင်ဆင်ထားပါသည်)
     viber_text = generate_message_text(is_viber=True)
-    viber_url = "https://chatapi.viber.com/pa/send_message"
+    viber_url = "https://chatapi.viber.com/pa/post"
     viber_headers = {"X-Viber-Auth-Token": VIBER_TOKEN}
     viber_payload = {
-        "chat_id": VIBER_CHAT_ID,  # Community အတွက် 'chat_id' ကို အသုံးပြုရပါသည်
-        "min_api_version": 1,
+        "from": VIBER_CHAT_ID,
         "sender": {"name": "Market Live Report"},
         "type": "text",
         "text": viber_text
     }
     try:
         res = requests.post(viber_url, json=viber_payload, headers=viber_headers, timeout=10)
-        print(f"Viber response: {res.status_code}")
+        print(f"Viber Community Post Response: {res.status_code} - {res.text}")
     except Exception as e:
         print(f"Viber Send Error: {e}")
 

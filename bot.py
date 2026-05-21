@@ -22,9 +22,9 @@ TG_CHAT_ID = "-1003940722388"
 bot = telebot.TeleBot(TG_TOKEN)
 
 # ======= [ 2. VIBER CONFIG ] =======
-# အစ်ကို့ရဲ့ Viber Token နှင့် Chat ID ကို ကွက်တိ ထည့်သွင်းပေးထားပါသည်
+# အစ်ကို့ Community အတွက် ကွက်တိ ရှာဖွေပြင်ဆင်ပေးထားသော ID အစစ်ဖြစ်ပါသည်
 VIBER_TOKEN = "515a44391e843e1d-c6a85536be62b3df-ef03348c4de8da51"
-VIBER_CHAT_ID = "pa:6234918750239185"
+VIBER_CHAT_ID = "gM7EonpInpS+560GZ/258w=="
 
 # ကမ္ဘာ့ကုန်စည်ဈေးကွက် သတင်းမျိုးစုံ ပုံစံများ
 oil_news_pool = [
@@ -99,7 +99,6 @@ def generate_message_text(is_viber=False):
     prices = get_market_data()
     current_news = generate_live_news()
     
-    # Viber နှင့် Telegram စာလုံးအလှဆင်စနစ် မတူသောကြောင့် ခွဲခြားပေးခြင်း
     b = "*" if is_viber else "**"
     
     text = (
@@ -118,7 +117,6 @@ def generate_message_text(is_viber=False):
     return text
 
 def send_update_to_all():
-    """ Telegram နှင့် Viber သို့ တပြိုင်နက်တည်း Auto စာလှမ်းပို့ပေးမည့် စနစ်သစ် """
     # ၁။ Telegram သို့ ပို့ခြင်း
     tg_text = generate_message_text(is_viber=False)
     try:
@@ -132,7 +130,7 @@ def send_update_to_all():
     viber_url = "https://chatapi.viber.com/pa/send_message"
     viber_headers = {"X-Viber-Auth-Token": VIBER_TOKEN}
     viber_payload = {
-        "receiver": VIBER_CHAT_ID,
+        "chat_id": VIBER_CHAT_ID,  # Community အတွက် 'chat_id' ကို အသုံးပြုရပါသည်
         "min_api_version": 1,
         "sender": {"name": "Market Live Report"},
         "type": "text",
@@ -154,7 +152,7 @@ def auto_update_worker():
     send_update_to_all()
     
     while True:
-        time.sleep(14400)  # ၄ နာရီတစ်ခါ ကွက်တိ အော်တိုပတ်မည်
+        time.sleep(14400)  # ၄ နာရီတစ်ခါ အော်တိုပတ်မည်
         send_update_to_all()
 
 if __name__ == "__main__":

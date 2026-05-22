@@ -10,7 +10,7 @@ app = Flask('')
 
 @app.route('/')
 def home():
-    return "Market Bot (Telegram + Viber) is Active!"
+    return "Market Bot (Telegram + Viber Group) is Active!"
 
 def run_web():
     port = int(os.environ.get("PORT", 10000))
@@ -23,7 +23,7 @@ bot = telebot.TeleBot(TG_TOKEN)
 
 # ======= [ 2. VIBER CONFIG ] =======
 VIBER_TOKEN = "515a44391e843e1d-c6a85536be62b3df-ef03348c4de8da51"
-VIBER_CHAT_ID = "gM7EonpInpS+560GZ/258w=="
+VIBER_CHAT_ID = "nVc17fiHk1a857P6swH9-a5WoImiKMxr" 
 
 oil_news_pool = [
     "WTI နှင့် Brent Crude ရေနံစိမ်းဈေးကွက်တွင် ရောင်းလိုအား လိုချက်ကြောင့် ဈေးနှုန်းများ ပြန်လည်မြင့်တက်လှုပ်ခတ်လာသည်။",
@@ -96,7 +96,6 @@ def get_market_data():
 def generate_message_text(is_viber=False):
     prices = get_market_data()
     current_news = generate_live_news()
-    
     b = "*" if is_viber else "**"
     
     text = (
@@ -123,19 +122,20 @@ def send_update_to_all():
     except Exception as e:
         print(f"Telegram Send Error: {e}")
 
-    # ၂။ Viber Community သို့ ပို့ခြင်း (အမှန်ကန်ဆုံး ပုံစံသို့ ပြင်ဆင်ထားပါသည်)
+    # ၂။ Viber Group သို့ ပို့ခြင်း
     viber_text = generate_message_text(is_viber=True)
-    viber_url = "https://chatapi.viber.com/pa/post"
+    viber_url = "https://chatapi.viber.com/pa/send_message"
     viber_headers = {"X-Viber-Auth-Token": VIBER_TOKEN}
     viber_payload = {
-        "from": VIBER_CHAT_ID,
+        "receiver": VIBER_CHAT_ID,
+        "min_api_version": 1,
         "sender": {"name": "Market Live Report"},
         "type": "text",
         "text": viber_text
     }
     try:
         res = requests.post(viber_url, json=viber_payload, headers=viber_headers, timeout=10)
-        print(f"Viber Community Post Response: {res.status_code} - {res.text}")
+        print(f"Viber Group Response: {res.status_code}")
     except Exception as e:
         print(f"Viber Send Error: {e}")
 
@@ -144,7 +144,7 @@ def manual_price(message):
     send_update_to_all()
 
 def auto_update_worker():
-    print("Auto Update Thread Started (4-Hour Interval)...")
+    print("Auto Update Thread Started...")
     time.sleep(5)
     send_update_to_all()
     
@@ -161,7 +161,6 @@ if __name__ == "__main__":
     t_auto.daemon = True
     t_auto.start()
     
-    print("Bot is starting polling...")
     try:
         bot.infinity_polling()
     except Exception as e:

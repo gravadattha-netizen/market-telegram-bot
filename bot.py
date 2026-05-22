@@ -10,49 +10,41 @@ app = Flask('')
 TG_TOKEN = "8646909789:AAHfAkmDGPgO1unJdxMl4EavLBDXM8V2mkc"
 TG_CHAT_ID = "-1003940722388"
 
-# သတင်းအချက်အလက်များ
-intl_news = "WTI နှင့် Brent Crude ရေနံစိမ်းဈေးကွက်တွင် ရောင်းလိုအား လိုချက်ကြောင့် ဈေးနှုန်းများ ပြန်လည်မြင့်တက်လှုပ်ခတ်လာသည်။"
-mm_news = "ပြည်တွင်းရွှေဈေးကွက်နှင့် ဒေါ်လာဈေးကွက်အတွင်း ကမ္ဘာ့ရွှေဈေးလှုပ်ခတ်မှုကြောင့် ဈေးနှုန်းများ ဆက်လက် ဂယက်ရိုက်ခတ်မှု ရှိနေသည်။"
+# သတင်းများ
+news = [
+    "ကမ္ဘာ့ရွှေဈေးနှုန်း မြင့်တက်လာမှုကြောင့် ပြည်တွင်းရွှေဈေးကွက်တွင်လည်း လိုက်ပါလှုပ်ခတ်မှုများ ရှိနေကြောင်း သိရသည်။",
+    "WTI နှင့် Brent Crude ရေနံစိမ်းဈေးကွက်တွင် ရောင်းလိုအား လိုချက်ကြောင့် ဈေးနှုန်းများ ပြန်လည်မြင့်တက်လှုပ်ခတ်လာသည်။",
+    "ပြည်တွင်း စက်သုံးဆီဈေးနှုန်းများနှင့် သယ်ယူပို့ဆောင်ရေးစရိတ်များ ယနေ့တွင် အပြောင်းအလဲအချို့ ရှိနေကြောင်း သိရသည်။"
+]
 
 @app.route('/')
 def home():
-    return "Bot is Active and News are enabled."
+    return "Market Bot is Running."
 
-def get_market_data():
-    return {
-        "BTC": f"${random.uniform(94000, 95000):,.2f}",
-        "ETH": f"${random.uniform(3400, 3500):,.2f}",
-        "GOLD": f"${random.uniform(4520, 4530):,.2f}",
-        "WTI": f"${random.uniform(97, 99):,.2f}",
-        "BRENT": f"${random.uniform(104, 106):,.2f}"
-    }
-
-def send_to_telegram():
-    try:
-        data = get_market_data()
-        current_time = time.strftime("%I:%M %p")
-        # ဈေးနှုန်းနှင့် သတင်းများ ပေါင်းစပ်ထားသော မက်ဆေ့ခ်ျ
-        msg = (f"🌟 **မင်္ဂလာရှိသောနေ့လေးဖြစ်ပါစေ** 🌟\n\n"
-               f"📊 **Market Update**\n\n"
-               f"₿ BTC: {data['BTC']}\n"
-               f"🟡 Gold: {data['GOLD']}\n"
-               f"⛽ WTI: {data['WTI']}\n"
-               f"🛢 Brent: {data['BRENT']}\n\n"
-               f"📢 **သတင်းအချက်အလက်များ (Live)**\n"
-               f"• [{current_time} နိုင်ငံတကာ] {intl_news}\n"
-               f"• [{current_time} ပြည်တွင်း] {mm_news}\n\n"
-               f"⚠️ _အရောင်းအဝယ်မပြုလုပ်ပါ သတင်းအချက်အလက် မျှဝေခြင်းပါ_")
-        
-        requests.post(f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage", 
-                      json={"chat_id": TG_CHAT_ID, "text": msg, "parse_mode": "Markdown"})
-    except Exception as e:
-        print(f"Error: {e}")
-
-def worker():
+def send_update():
     while True:
-        send_to_telegram()
-        time.sleep(14400) # 4 နာရီတစ်ခါ
+        try:
+            # ဈေးနှုန်းများ
+            btc = random.uniform(94000, 95000)
+            eth = random.uniform(3400, 3500)
+            gold = random.uniform(4520, 4530)
+            
+            msg = (f"🌟 *Market Update*\n\n"
+                   f"₿ BTC: ${btc:,.2f}\n"
+                   f"Ξ ETH: ${eth:,.2f}\n"
+                   f"🟡 Gold: ${gold:,.2f}\n\n"
+                   f"📢 *Live News*\n{random.choice(news)}")
+            
+            requests.post(f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage", 
+                          json={"chat_id": TG_CHAT_ID, "text": msg, "parse_mode": "Markdown"})
+            
+            print("Message Sent Successfully!")
+        except Exception as e:
+            print(f"Error: {e}")
+        
+        time.sleep(14400) # 4 နာရီ
 
 if __name__ == "__main__":
-    threading.Thread(target=worker, daemon=True).start()
+    # Thread ကို သီးသန့်စတင်ခြင်း
+    threading.Thread(target=send_update, daemon=True).start()
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))

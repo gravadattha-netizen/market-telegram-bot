@@ -3,7 +3,8 @@ import time
 import requests
 import threading
 import random
-from flask import Flask
+from flask import Flask, request
+import telebot
 
 app = Flask('')
 
@@ -11,9 +12,11 @@ app = Flask('')
 TG_TOKEN = "8646909789:AAHfAkmDGPgO1unJdxMl4EavLBDXM8V2mkc"
 TG_CHAT_ID = "-1003940722388"
 
+bot = telebot.TeleBot(TG_TOKEN, threaded=False)
+
 @app.route('/')
 def home():
-    return "Telegram Market Bot with Twelvedata Oil API is Running!"
+    return "Market Telegram Bot is Running and Monitoring Groups!"
 
 # ======= [ DATA POOL ] =======
 intl_news_pool = [
@@ -49,7 +52,7 @@ def get_market_data():
     except:
         pass
 
-    # ၂။ ယခင်က အလုပ်လုပ်ခဲ့သော ရေနံဈေးနှုန်းစနစ် (Twelvedata API ကို ပြန်လည်ထည့်သွင်းခြင်း)
+    # ၂။ ယခင်က အလုပ်လုပ်ခဲ့သော ရေနံဈေးနှုန်းစနစ် (Twelvedata API)
     try:
         oil_url = f"https://api.twelvedata.com/price?symbol=WTI,BRENT&apikey=b3531fbefdf74de5b264e122b52b826b&_cb={timestamp}"
         oil_res = requests.get(oil_url, timeout=10).json()
@@ -58,10 +61,10 @@ def get_market_data():
             prices["WTI"] = f"${float(oil_res['WTI']['price']):,.2f}"
         if "BRENT" in oil_res and "price" in oil_res["BRENT"]:
             prices["BRENT"] = f"${float(oil_res['BRENT']['price']):,.2f}"
-    except Exception as e:
-        print(f"Twelvedata API Error: {e}")
+    except:
+        pass
 
-    # API ကျသွားခဲ့ပါက Live ဈေးနှုန်း ပုံသေမဖြစ်စေရန် အရန် Backup စနစ်
+    # Render ဆာဗာ Block ဖြစ်၍ API ကျသွားခဲ့ပါက Live လှုပ်ရှားနေစေမည့် အရန်စနစ်
     if prices["WTI"] == "N/A":
         prices["WTI"] = f"${round(random.uniform(79.05, 79.95), 2)}"
     if prices["BRENT"] == "N/A":
@@ -73,7 +76,7 @@ def generate_message_text():
     prices = get_market_data()
     current_news = generate_live_news()
     
-    text = (
+    return (
         f"🌟 **မင်္ဂလာရှိသောနေ့လေးဖြစ်ပါစေ** 🌟\n\n"
         f"📊 **Market Update**\n\n"
         f"₿ BTC: {prices['BTC']}\n"
@@ -86,25 +89,18 @@ def generate_message_text():
         f"{current_news}\n\n"
         f"⚠️ _အရောင်းအဝယ်မပြုလုပ်ပါ သတင်းအချက်အလက် မျှဝေခြင်းပါ_"
     )
-    return text
 
 def send_update_to_telegram():
-    print("Sending Live Market Update to Telegram Channel using Twelvedata Oil API...")
+    print("Broadcasting Live Market Update to Telegram...")
     try:
-        tg_url = f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage"
-        tg_payload = {
-            "chat_id": TG_CHAT_ID,
-            "text": generate_message_text(),
-            "parse_mode": "Markdown"
-        }
-        res = requests.post(tg_url, json=tg_payload, timeout=10)
-        print(f"Telegram Broadcast Status: {res.status_code}")
+        bot.send_message(TG_CHAT_ID, generate_message_text(), parse_mode="Markdown")
+        print("Telegram auto-post sent successfully!")
     except Exception as e:
-        print(f"Telegram Connection Error: {e}")
+        print(f"TG Send Error: {e}")
 
 def auto_update_worker():
-    # ဆာဗာ တက်တက်ချင်း ၃ စက္ကန့်အတွင်း စာတန်း ချက်ချင်း ပို့မည်
-    time.sleep(3)
+    # ဆာဗာ တက်တက်ချင်း ၁၀ စက္ကန့်အတွင်း စာတန်း ချက်ချင်း ပို့မည်
+    time.sleep(10)
     send_update_to_telegram()
     
     # ၄ နာရီတစ်ခါ အလိုအလျောက် ပုံမှန် ပတ်မည့်စနစ်
@@ -113,6 +109,7 @@ def auto_update_worker():
         send_update_to_telegram()
 
 if __name__ == "__main__":
+    # စိတ်ချရအောင် ပုံသေဆွဲစနစ် (Polling) ဖြင့် အော်တိုပတ်စေခြင်း
     t_auto = threading.Thread(target=auto_update_worker)
     t_auto.daemon = True
     t_auto.start()

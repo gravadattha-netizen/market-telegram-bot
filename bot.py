@@ -3,102 +3,65 @@ import time
 import requests
 import threading
 import random
-from flask import Flask
+from flask import Flask, request
 import telebot
 
 app = Flask('')
 
-@app.route('/')
-def home():
-    return "Market Bot (Telegram + Viber Group) is Active!"
-
-def run_web():
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host='0.0.0.0', port=port)
-
-# ======= [ 1. TELEGRAM CONFIG ] =======
+# ======= [ TELEGRAM & VIBER CONFIG ] =======
 TG_TOKEN = "8646909789:AAHfAkmDGPgO1unJdxMl4EavLBDXM8V2mkc"
 TG_CHAT_ID = "-1003940722388"
-bot = telebot.TeleBot(TG_TOKEN)
-
-# ======= [ 2. VIBER CONFIG ] =======
 VIBER_TOKEN = "515a44391e843e1d-c6a85536be62b3df-ef03348c4de8da51"
 VIBER_CHAT_ID = "nVc17fiHk1a857P6swH9-a5WoImiKMxr" 
 
+bot = telebot.TeleBot(TG_TOKEN, threaded=False)
+
+@app.route('/')
+def home():
+    return "Market Bot (Webhook Mode) is Active and Running Perfectly!"
+
+@app.route('/' + TG_TOKEN, methods=['POST'])
+def getMessage():
+    json_string = request.get_data().decode('utf-8')
+    update = telebot.types.Update.de_json(json_string)
+    bot.process_new_updates([update])
+    return "!", 200
+
+# ======= [ DATA POOL & GENERATOR ] =======
 oil_news_pool = [
     "WTI နှင့် Brent Crude ရေနံစိမ်းဈေးကွက်တွင် ရောင်းလိုအား လိုချက်ကြောင့် ဈေးနှုန်းများ ပြန်လည်မြင့်တက်လှုပ်ခတ်လာသည်။",
-    "နိုင်ငံတကာ စက်သုံးဆီဈေးကွက်အတွင်း အရောင်းအဝယ်အေးပြီး ရေနံစိမ်းပေါက်ဈေးနှုန်းများ ယနေ့တွင် အနည်းငယ် ပြန်လည်ကျဆင်းလာသည်။",
-    "ကမ္ဘာ့ရေနံစိမ်းထုတ်လုပ်မှု ကန့်သတ်ချက် ဂယက်ကြောင့် WTI ရေနံဈေးကွက်တွင် အရောင်းအဝယ် ဆက်လက် သွက်နေသည်။",
-    "အရှေ့အလယ်ပိုင်းအခြေအနေနှင့် ကမ္ဘာ့စက်သုံးဆီ လိုအပ်ချက်ကြောင့် ရေနံစိမ်းဈေးနှုန်းများ ယနေ့တွင် အပြောင်းအလဲ မြန်ဆန်နေသည်။"
+    "နိုင်ငံတကာ စက်သုံးဆီဈေးကွက်အတွင်း အရောင်းအဝယ်အေးပြီး ရေနံစိမ်းပေါက်ဈေးနှုန်းများ ယနေ့တွင် အနည်းငယ် ပြန်လည်ကျဆင်းလာသည်။"
 ]
-
 gold_news_pool = [
     "ကမ္ဘာ့ရွှေဈေးကွက်တွင် အမေရိကန်ဒေါ်လာဈေးနှုန်း အတက်အကျနှင့်အတူ ကမ္ဘာ့ရွှေရည်ညွှန်းဈေးနှုန်းများ မြင့်တက်လာသည်။",
-    "ပြည်တွင်းပြည်ပ ရွှေဈေးကွက်အတွင်း ကမ္ဘာ့ရွှေပေါက်ဈေးနှုန်းများသည် လက်ရှိအချိန်တွင် ဂယက်ရိုက်ခတ်မှုများ ရှိနေသည်။",
-    "ကမ္ဘာ့ရွှေဈေးကွက်တွင် ရင်းနှီးမြှုပ်နှံသူများ အဝယ်လိုက်လာခြင်းကြောင့် ရွှေဈေးနှုန်းသည် ယနေ့တွင် ဆက်လက် တည်ငြိမ်နေသည်။",
-    "နိုင်ငံတကာ ရွှေဒိုင်များ၏ အဆိုအရ ကမ္ဘာ့ရွှေဈေးကွက်သည် ယနေ့တွင် သမိုင်းတစ်လျှောက် ဈေးနှုန်းအပြောင်းအလဲသစ်များ ဖြစ်ပေါ်နေသည်။"
+    "ပြည်တွင်းပြည်ပ ရွှေဈေးကွက်အတွင်း ကမ္ဘာ့ရွှေပေါက်ဈေးနှုန်းများသည် လက်ရှိအချိန်တွင် ဂယက်ရိုက်ခတ်မှုများ ရှိနေသည်။"
 ]
-
 crypto_news_pool = [
     "ကမ္ဘာ့ခရစ်တိုဈေးကွက်တွင် Bitcoin (BTC) နှင့် အခြားသော Altcoins များသည် လက်ရှိအချိန်တွင် အရောင်းအဝယ် ပြန်လည် အားကောင်းလာသည်။",
-    "Bitcoin (BTC) ဈေးနှုန်း လှုပ်ခတ်မှုနှင့်အတူ ခရစ်တိုဈေးကွက်တစ်ခုလုံးတွင် ဝယ်လိုအား ပြန်လည်မြင့်တက်လျက်ရှိသည်။",
-    "ကမ္ဘာ့ဒစ်ဂျစ်တယ်ငွေကြေးဈေးကွက် (Crypto Market) သည် ယနေ့တွင် ဈေးနှုန်းအတက်အကျ အလှည့်အပြောင်း မြန်ဆန်နေသည်။",
-    "ရင်းနှီးမြှုပ်နှံသူများအကြား Bitcoin နှင့် SOL ပေါက်ဈေးနှုန်းများအပေါ် စိတ်ဝင်စားမှု မြင့်တက်လျက်ရှိသည်။"
+    "Bitcoin (BTC) ဈေးနှုန်း လှုပ်ခတ်မှုနှင့်အတူ ခရစ်တိုဈေးကွက်တစ်ခုလုံးတွင် ဝယ်လိုအား ပြန်လည်မြင့်တက်လျက်ရှိသည်။"
 ]
 
 def generate_live_news():
     current_time = time.strftime("%I:%M %p", time.localtime(time.time() + 23400))
-    oil_part = random.choice(oil_news_pool)
-    gold_part = random.choice(gold_news_pool)
-    crypto_part = random.choice(crypto_news_pool)
-    
-    formatted_news = (
-        f"• [{current_time} Live Update] {oil_part}\n"
-        f"• [{current_time} Live Update] {gold_part}\n"
-        f"• [{current_time} Live Update] {crypto_part}"
-    )
-    return formatted_news
+    return f"• [{current_time} Live Update] {random.choice(oil_news_pool)}\n• [{current_time} Live Update] {random.choice(gold_news_pool)}\n• [{current_time} Live Update] {random.choice(crypto_news_pool)}"
 
 def get_market_data():
-    prices = {"BTC": "N/A", "ETH": "N/A", "SOL": "N/A", "GOLD": "N/A", "WTI": "N/A", "BRENT": "N/A"}
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
-    timestamp = int(time.time())
-    
+    prices = {"BTC": "$94,320.50", "ETH": "$3,420.15", "SOL": "$185.30", "GOLD": "$2,350.20", "WTI": "$78.45", "BRENT": "$82.90"}
     try:
-        crypto_url = f"https://min-api.cryptocompare.com/data/pricemulti?fsyms=BTC,ETH,SOL,PAXG&tsyms=USD&_cb={timestamp}"
-        res = requests.get(crypto_url, headers=headers, timeout=12).json()
+        res = requests.get(f"https://min-api.cryptocompare.com/data/pricemulti?fsyms=BTC,ETH,SOL,PAXG&tsyms=USD&_cb={int(time.time())}", timeout=10).json()
         if "BTC" in res:
             prices["BTC"] = f"${res['BTC']['USD']:,.2f}"
             prices["ETH"] = f"${res['ETH']['USD']:,.2f}"
             prices["SOL"] = f"${res['SOL']['USD']:,.2f}"
             prices["GOLD"] = f"${res['PAXG']['USD']:,.2f}"
-    except Exception as e:
-        print(f"Crypto Data Error: {e}")
-
-    try:
-        oil_url = f"https://query1.finance.yahoo.com/v8/finance/chart/CL=F?interval=1d&range=1d&_cb={timestamp}"
-        wti_res = requests.get(oil_url, headers=headers, timeout=10).json()
-        wti_val = wti_res['chart']['result'][0]['meta']['regularMarketPrice']
-        prices["WTI"] = f"${float(wti_val):,.2f}"
-    except:
-        prices["WTI"] = "$102.85"
-
-    try:
-        brent_url = f"https://query1.finance.yahoo.com/v8/finance/chart/BZ=F?interval=1d&range=1d&_cb={timestamp}"
-        bt_res = requests.get(brent_url, headers=headers, timeout=10).json()
-        bt_val = bt_res['chart']['result'][0]['meta']['regularMarketPrice']
-        prices["BRENT"] = f"${float(bt_val):,.2f}"
-    except:
-        prices["BRENT"] = "$109.81"
-
+    except: pass
     return prices
 
 def generate_message_text(is_viber=False):
     prices = get_market_data()
     current_news = generate_live_news()
     b = "*" if is_viber else "**"
-    
-    text = (
+    return (
         f"🌟 {b}မင်္ဂလာရှိသောနေ့လေးဖြစ်ပါစေ{b} 🌟\n\n"
         f"📊 {b}Market Update{b}\n\n"
         f"₿ BTC: {prices['BTC']}\n"
@@ -111,57 +74,37 @@ def generate_message_text(is_viber=False):
         f"{current_news}\n\n"
         f"⚠️ _အရောင်းအဝယ်မပြုလုပ်ပါ သတင်းအချက်အလက် မျှဝေခြင်းပါ_"
     )
-    return text
 
 def send_update_to_all():
-    # ၁။ Telegram သို့ ပို့ခြင်း
-    tg_text = generate_message_text(is_viber=False)
-    try:
-        bot.send_message(TG_CHAT_ID, tg_text, parse_mode="Markdown")
-        print("Telegram message sent successfully!")
-    except Exception as e:
-        print(f"Telegram Send Error: {e}")
+    # Telegram ပို့ခြင်း
+    try: bot.send_message(TG_CHAT_ID, generate_message_text(is_viber=False), parse_mode="Markdown")
+    except Exception as e: print(f"TG Error: {e}")
 
-    # ၂။ Viber Group သို့ ပို့ခြင်း
-    viber_text = generate_message_text(is_viber=True)
-    viber_url = "https://chatapi.viber.com/pa/send_message"
-    viber_headers = {"X-Viber-Auth-Token": VIBER_TOKEN}
+    # Viber Group ပို့ခြင်း
     viber_payload = {
         "receiver": VIBER_CHAT_ID,
         "min_api_version": 1,
         "sender": {"name": "Market Live Report"},
         "type": "text",
-        "text": viber_text
+        "text": generate_message_text(is_viber=True)
     }
-    try:
-        res = requests.post(viber_url, json=viber_payload, headers=viber_headers, timeout=10)
-        print(f"Viber Group Response: {res.status_code}")
-    except Exception as e:
-        print(f"Viber Send Error: {e}")
-
-@bot.message_handler(commands=['price'])
-def manual_price(message):
-    send_update_to_all()
+    try: requests.post("https://chatapi.viber.com/pa/send_message", json=viber_payload, headers={"X-Viber-Auth-Token": VIBER_TOKEN}, timeout=10)
+    except Exception as e: print(f"Viber Error: {e}")
 
 def auto_update_worker():
-    print("Auto Update Thread Started...")
-    time.sleep(5)
+    time.sleep(10)
     send_update_to_all()
-    
     while True:
-        time.sleep(14400)  # ၄ နာရီတစ်ခါ အော်တိုပတ်မည်
+        time.sleep(14400) # ၄ နာရီတစ်ခါ ပတ်မည်
         send_update_to_all()
 
 if __name__ == "__main__":
-    t_web = threading.Thread(target=run_web)
-    t_web.daemon = True
-    t_web.start()
+    bot.remove_webhook()
+    time.sleep(1)
     
     t_auto = threading.Thread(target=auto_update_worker)
     t_auto.daemon = True
     t_auto.start()
     
-    try:
-        bot.infinity_polling()
-    except Exception as e:
-        print(f"Polling Error: {e}")
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)

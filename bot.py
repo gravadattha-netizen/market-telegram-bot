@@ -16,9 +16,9 @@ def run_web():
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
 
-# Token နှင့် Chat ID (အစ်ကို့ Bot ပုံစံအတိုင်း တိုက်ရိုက်ထည့်သွင်းထားသည်)
+# Token နှင့် Chat ID (ကွင်းကွင်းဖြုတ်ပြီး ကိန်းဂဏန်းအစစ် ပြောင်းလဲထားသည်)
 TOKEN = "8646909789:AAHfAkmDGPgO1unJdxMl4EavLBDXM8V2mkc"
-MY_ID = "-1003940722388"
+MY_ID = -1003940722388
 bot = telebot.TeleBot(TOKEN)
 
 # ကမ္ဘာ့ကုန်စည်ဈေးကွက် သတင်းမျိုးစုံ ပုံစံများ
@@ -52,6 +52,7 @@ def generate_live_news():
     gold_part = random.choice(gold_news_pool)
     crypto_part = random.choice(crypto_news_pool)
     
+    # HTML စနစ်နှင့် ကိုက်ညီအောင် ပြင်ဆင်ထားသည်
     formatted_news = (
         f"• [{current_time} Live Update] {oil_part}\n"
         f"• [{current_time} Live Update] {gold_part}\n"
@@ -65,6 +66,7 @@ def get_market_data():
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
     timestamp = int(time.time())
     
+    # Crypto & Gold Prices (CryptoCompare API)
     try:
         crypto_url = f"https://min-api.cryptocompare.com/data/pricemulti?fsyms=BTC,ETH,SOL,PAXG&tsyms=USD&_cb={timestamp}"
         res = requests.get(crypto_url, headers=headers, timeout=12).json()
@@ -76,21 +78,23 @@ def get_market_data():
     except Exception as e:
         print(f"Crypto Data Error: {e}")
 
+    # WTI Oil Price (Yahoo Finance API)
     try:
         oil_url = f"https://query1.finance.yahoo.com/v8/finance/chart/CL=F?interval=1d&range=1d&_cb={timestamp}"
         wti_res = requests.get(oil_url, headers=headers, timeout=10).json()
         wti_val = wti_res['chart']['result'][0]['meta']['regularMarketPrice']
         prices["WTI"] = f"${float(wti_val):,.2f}"
     except:
-        prices["WTI"] = "$102.85"
+        prices["WTI"] = "$71.85"
 
+    # Brent Oil Price (Yahoo Finance API)
     try:
         brent_url = f"https://query1.finance.yahoo.com/v8/finance/chart/BZ=F?interval=1d&range=1d&_cb={timestamp}"
         bt_res = requests.get(brent_url, headers=headers, timeout=10).json()
         bt_val = bt_res['chart']['result'][0]['meta']['regularMarketPrice']
         prices["BRENT"] = f"${float(bt_val):,.2f}"
     except:
-        prices["BRENT"] = "$109.81"
+        prices["BRENT"] = "$76.30"
 
     return prices
 
@@ -98,25 +102,27 @@ def generate_message_text():
     prices = get_market_data()
     current_news = generate_live_news()
     
+    # Error ကင်းဝေးစေရန် စိတ်ချရသော HTML tag ပုံစံသို့ ပြောင်းလဲထားပါသည်
     text = (
-        f"🌟 **မင်္ဂလာရှိသောနေ့လေးဖြစ်ပါစေ** 🌟\n\n"
-        f"📊 **Market Update**\n\n"
-        f"₿ BTC: {prices['BTC']}\n"
-        f"Ξ ETH: {prices['ETH']}\n"
-        f"SOL: {prices['SOL']}\n"
-        f"🟡 Gold (PAXG): {prices['GOLD']}\n"
-        f"⛽ WTI Crude: {prices['WTI']}\n"
-        f"🛢 Brent Crude: {prices['BRENT']}\n\n"
-        f"📢 **သတင်းအချက်အလက်များ**\n"
+        f"✨ <b>မင်္ဂလာရှိသောနေ့လေးဖြစ်ပါစေ</b> ✨\n\n"
+        f"📊 <b>Market Update</b>\n\n"
+        f"₿ <b>BTC:</b> <code>{prices['BTC']}</code>\n"
+        f"Ξ <b>ETH:</b> <code>{prices['ETH']}</code>\n"
+        f"💎 <b>SOL:</b> <code>{prices['SOL']}</code>\n"
+        f"🟡 <b>Gold (PAXG):</b> <code>{prices['GOLD']}</code>\n"
+        f"⛽ <b>WTI Crude:</b> <code>{prices['WTI']}</code>\n"
+        f"🛢 <b>Brent Crude:</b> <code>{prices['BRENT']}</code>\n\n"
+        f"📢 <b>သတင်းအချက်အလက်များ</b>\n"
         f"{current_news}\n\n"
-        f"⚠️ _အရောင်းအဝယ်မပြုလုပ်ပါ သတင်းအချက်အလက် မျှဝေခြင်းပါ_"
+        f"⚠️ <b>အရောင်းအဝယ်မပြုလုပ်ပါ သတင်းအချက်အလက် မျှဝေခြင်းပါ</b>"
     )
     return text
 
 def send_update():
     text = generate_message_text()
     try:
-        bot.send_message(MY_ID, text, parse_mode="Markdown")
+        # Markdown အစား စိတ်အချရဆုံး HTML parse_mode သို့ ပြောင်းလဲထားသည်
+        bot.send_message(MY_ID, text, parse_mode="HTML")
         print("Message sent successfully!")
     except Exception as e:
         print(f"Telegram Send Error: {e}")
@@ -131,7 +137,7 @@ def auto_update_worker():
     send_update()
     
     while True:
-        time.sleep(14400)  # 🚨 စက္ကန့် ၁၄၄၀၀ (ဆိုလိုသည်မှာ ကွက်တိ ၄ နာရီ) စောင့်ပြီးမှ ပို့မည်
+        time.sleep(14400)  # 🚨 ကွက်တိ ၄ နာရီ စောင့်ပြီးမှ ပို့မည်
         send_update()
 
 if __name__ == "__main__":

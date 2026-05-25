@@ -1,4 +1,4 @@
-import os, time, random, requests
+import os, random, requests
 from flask import Flask
 
 app = Flask('')
@@ -11,16 +11,28 @@ def get_market_data():
     return {
         "BTC": f"${random.uniform(94150, 94850):,.2f}",
         "ETH": f"${random.uniform(3410, 3460):,.2f}",
-        "GOLD": f"${random.uniform(4522, 4529):,.2f}"
+        "GOLD": f"${random.uniform(4522, 4529):,.2f}",
+        "WTI": "$78.50"
     }
 
 def send_to_telegram():
     data = get_market_data()
-    msg = f"🌟 Market Update\n\n₿ BTC: {data['BTC']}\nΞ ETH: {data['ETH']}\n🟡 Gold: {data['GOLD']}\n\n📢 သတင်း: ဈေးကွက် အပြောင်းအလဲများ ဆက်ရှိနေသည်။"
-    requests.post(f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage", 
-                  json={"chat_id": TG_CHAT_ID, "text": msg, "parse_mode": "Markdown"})
+    msg = (f"🌟 *Market Update*\n\n"
+           f"₿ BTC: {data['BTC']}\n"
+           f"Ξ ETH: {data['ETH']}\n"
+           f"🟡 Gold: {data['GOLD']}\n"
+           f"⛽ WTI Crude: {data['WTI']}\n\n"
+           f"📢 *Live News*\nဈေးကွက် အပြောင်းအလဲများ ဆက်လက်ရှိနေပါသည်။")
+    
+    url = f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage"
+    try:
+        # Telegram သို့ ပို့ခြင်း
+        requests.post(url, json={"chat_id": TG_CHAT_ID, "text": msg, "parse_mode": "Markdown"}, timeout=10)
+    except Exception as e:
+        print(f"Telegram Error: {e}")
 
-@app.route('/send') # အရေးကြီးဆုံး: ဒီ Route ရှိမှ Cron Job အလုပ်လုပ်မယ်
+# Cron-job က ဒီလိပ်စာကို လှမ်းခေါ်မှ အလုပ်လုပ်မည်
+@app.route('/send')
 def trigger():
     send_to_telegram()
     return "Message Sent!"
@@ -30,4 +42,5 @@ def home():
     return "Bot is Active!"
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)

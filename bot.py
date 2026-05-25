@@ -1,5 +1,4 @@
 import os
-import random
 import requests
 from flask import Flask
 
@@ -10,15 +9,24 @@ TG_CHAT_ID = "-1003940722388"
 
 @app.route('/send')
 def trigger_send():
-    # Binance API မှ တိုက်ရိုက်ယူခြင်း
+    # ၁။ Binance မှ Live စျေးနှုန်းယူခြင်း
     try:
-        r = requests.get("https://api.binance.com/api/v3/ticker/price?symbols=[\"BTCUSDT\",\"ETHUSDT\"]", timeout=5)
-        res = r.json()
-        prices = {item['symbol']: f"${float(item['price']):,.2f}" for item in res}
+        r = requests.get("https://api.binance.com/api/v3/ticker/price?symbols=[\"BTCUSDT\",\"ETHUSDT\",\"SOLUSDT\"]", timeout=10)
+        data = r.json()
+        prices = {item['symbol']: f"${float(item['price']):,.2f}" for item in data}
     except:
-        prices = {"BTCUSDT": "N/A", "ETHUSDT": "N/A"}
-        
-    msg = f"🚀 *Binance Live Market*\nBTC: {prices['BTCUSDT']}\nETH: {prices['ETHUSDT']}\n\n📢 *News Summary*\nဈေးကွက် အပြောင်းအလဲများ ဆက်လက်ရှိနေပါသည်။"
+        prices = {"BTCUSDT": "N/A", "ETHUSDT": "N/A", "SOLUSDT": "N/A"}
+
+    # ၂။ သတင်းအနှစ်ချုပ် (Crypto သတင်းများ)
+    news = ("📢 *Live Market News Update*\n"
+            "• BTC: စျေးကွက်တွင် အတက်အကျများ ဆက်လက်ဖြစ်ပေါ်နေသည်။\n"
+            "• ETH: အရောင်းအဝယ်ပမာဏ တည်ငြိမ်နေသည်။\n"
+            "• SOL: အဓိက Support အဆင့်တွင် ထိန်းထားနိုင်သည်။")
+            
+    msg = (f"🚀 *Binance Live Price*\n"
+           f"₿ BTC: {prices.get('BTCUSDT', 'N/A')}\n"
+           f"Ξ ETH: {prices.get('ETHUSDT', 'N/A')}\n"
+           f"◈ SOL: {prices.get('SOLUSDT', 'N/A')}\n\n{news}")
     
     requests.post(f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage", 
                   json={"chat_id": TG_CHAT_ID, "text": msg, "parse_mode": "Markdown"})
@@ -26,8 +34,7 @@ def trigger_send():
 
 @app.route('/')
 def home():
-    return "Bot is Live!"
+    return "Bot is Live and Fetching Data!"
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))

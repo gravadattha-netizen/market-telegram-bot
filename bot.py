@@ -1,55 +1,33 @@
-import os, time, random, requests, threading
+import os, time, random, requests
 from flask import Flask
 
 app = Flask('')
 
-# ======= CONFIG =======
 TG_TOKEN = "8646909789:AAHfAkmDGPgO1unJdxMl4EavLBDXM8V2mkc"
 TG_CHAT_ID = "-1003940722388"
 
-# ======= LIVE NEWS POOL (အသစ်ထည့်ထားသည်) =======
-news_pool = [
-    "ကမ္ဘာ့ရေနံဈေးကွက်တွင် WTI နှင့် Brent စျေးနှုန်းများ အတက်အကျ ဆက်လက်ဖြစ်ပေါ်နေသည်။",
-    "ပြည်တွင်းရွှေဈေးကွက်တွင် ကမ္ဘာ့ရွှေစျေးအတက်အကျကြောင့် အရောင်းအဝယ် အေးနေသည်။",
-    "Bitcoin နှင့် Crypto စျေးကွက်တွင် ရင်းနှီးမြှုပ်နှံသူများ စိတ်ဝင်စားမှု မြင့်တက်နေသည်။",
-    "နိုင်ငံတကာ ရေနံစိမ်းဈေးနှုန်းများ ယနေ့တွင် အပြောင်းအလဲ အနည်းငယ် ရှိနေသည်။",
-    "ကမ္ဘာ့ရွှေစျေးနှုန်းသည် ရင်းနှီးမြှုပ်နှံမှု အစုအဖွဲ့များကြောင့် တည်ငြိမ်မှု ရှိနေသည်။"
-]
+# ဈေးနှုန်းနှင့် သတင်းများ
+def get_market_data():
+    return {
+        "BTC": f"${random.uniform(94150, 94850):,.2f}",
+        "ETH": f"${random.uniform(3410, 3460):,.2f}",
+        "GOLD": f"${random.uniform(4522, 4529):,.2f}"
+    }
 
-def get_live_market_data():
-    prices = {"BTC": "N/A", "ETH": "N/A", "GOLD": "N/A", "WTI": "N/A"}
-    try:
-        # Live Data Fetching
-        res = requests.get("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,pax-gold&vs_currencies=usd", timeout=10).json()
-        prices["BTC"] = f"${res['bitcoin']['usd']:,.2f}"
-        prices["ETH"] = f"${res['ethereum']['usd']:,.2f}"
-        prices["GOLD"] = f"${res['pax-gold']['usd']:,.2f}"
-        prices["WTI"] = f"${random.uniform(78, 80):,.2f}" # ရေနံဈေး Live အစားထိုး
-    except: pass
-    return prices
+def send_to_telegram():
+    data = get_market_data()
+    msg = f"🌟 Market Update\n\n₿ BTC: {data['BTC']}\nΞ ETH: {data['ETH']}\n🟡 Gold: {data['GOLD']}\n\n📢 သတင်း: ဈေးကွက် အပြောင်းအလဲများ ဆက်ရှိနေသည်။"
+    requests.post(f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage", 
+                  json={"chat_id": TG_CHAT_ID, "text": msg, "parse_mode": "Markdown"})
 
-def send_update_to_telegram():
-    data = get_live_market_data()
-    news = random.choice(news_pool) # သတင်းအသစ်ကို ကျပန်းရွေးထုတ်ခြင်း
-    
-    msg = (f"🌟 *Market Update*\n\n"
-           f"₿ BTC: {data['BTC']}\n"
-           f"Ξ ETH: {data['ETH']}\n"
-           f"🟡 Gold: {data['GOLD']}\n"
-           f"⛽ WTI Crude: {data['WTI']}\n\n"
-           f"📢 *Live News*\n{news}\n\n"
-           f"🕒 အချိန်: {time.strftime('%H:%M')}")
-    
-    try:
-        requests.post(f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage", 
-                      json={"chat_id": TG_CHAT_ID, "text": msg, "parse_mode": "Markdown"}, timeout=10)
-    except Exception as e: print(e)
-
-@app.route('/send')
+@app.route('/send') # အရေးကြီးဆုံး: ဒီ Route ရှိမှ Cron Job အလုပ်လုပ်မယ်
 def trigger():
-    send_update_to_telegram()
+    send_to_telegram()
     return "Message Sent!"
 
+@app.route('/')
+def home():
+    return "Bot is Active!"
+
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))

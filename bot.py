@@ -38,21 +38,19 @@ gold_news_pool = [
 
 crypto_news_pool = [
     "ကမ္ဘာ့ခရစ်ပတိုဈေးကွက်တွင် Bitcoin (BTC) နှင့် အခြားသော Altcoins များသည် လက်ရှိအချိန်တွင် အရောင်းအဝယ် ပြန်လည် အားကောင်းလာသည်။",
-    "Bitcoin (BTC) ဈေးနှုန်းနှင့်အတူ ဒစ်ဂျစ်တယ်ဈေးကွက်တစ်ခုလုံးတွင် ဝယ်လိုအား ပြန်လည်မြင့်တက်လျက်ရှိသည်။",
+    "Bitcoin (BTC) ဈေးနှုန်းနှင့်အတူ ดစ်ဂျစ်တယ်ဈေးကွက်တစ်ခုလုံးတွင် ဝယ်လိုအား ပြန်လည်မြင့်တက်လျက်ရှိသည်။",
     "ကမ္ဘာ့ဒစ်ဂျစ်တယ်ငွေကြေးဈေးကွက် (Crypto Market) သည် ယနေ့တွင် ဈေးနှုန်းအတက်အကျ အလှုပ်အခတ်များ ပြန်ဆန်နေသည်။",
     "ရင်းနှီးမြှုပ်နှံသူများကြား Bitcoin နှင့် SOL ပေါက်ဈေးနှုန်းများအပေါ် စိတ်ဝင်စားမှု မြင့်တက်လျက်ရှိသည်။"
 ]
 
 def generate_live_news():
     """ 📢 အချိန်စနစ် (Timestamp) နှင့် ကျုံ့ကွင်းစနစ်ဖြင့် သတင်းကို ၄ နာရီတစ်ခါ အသစ်ထုတ်ပေးခြင်း """
-    # မြန်မာစံတော်ချိန် တွက်ချက်ခြင်း (+6:30 Standard)
     current_time = time.strftime("%I:%M %p", time.localtime(time.time() + 23400))
     
     oil_part = random.choice(oil_news_pool)
     gold_part = random.choice(gold_news_pool)
     crypto_part = random.choice(crypto_news_pool)
     
-    # HTML စနစ်နှင့် ကိုက်ညီအောင် ပြင်ဆင်ထားသည်
     formatted_news = (
         f"⏳ [{current_time} Live Update] {oil_part}\n"
         f"⏳ [{current_time} Live Update] {gold_part}\n"
@@ -66,7 +64,6 @@ def get_market_data():
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
     timestamp = int(time.time())
     
-    # Crypto & Gold Prices (CryptoCompare API)
     try:
         crypto_url = f"https://min-api.cryptocompare.com/data/pricemulti?fsyms=BTC,ETH,SOL,PAXG&tsyms=USD&_cb={timestamp}"
         res = requests.get(crypto_url, headers=headers, timeout=12).json()
@@ -78,7 +75,6 @@ def get_market_data():
     except Exception as e:
         print(f"Crypto Data Error: {e}")
         
-    # WTI Oil Price (Yahoo Finance API)
     try:
         oil_url = f"https://query1.finance.yahoo.com/v8/finance/chart/CL=F?interval=1d&range=1d&_cb={timestamp}"
         wti_res = requests.get(oil_url, headers=headers, timeout=10).json()
@@ -87,7 +83,6 @@ def get_market_data():
     except:
         prices["WTI"] = "$71.85"
         
-    # Brent Oil Price (Yahoo Finance API)
     try:
         brent_url = f"https://query1.finance.yahoo.com/v8/finance/chart/BZ=F?interval=1d&range=1d&_cb={timestamp}"
         bt_res = requests.get(brent_url, headers=headers, timeout=10).json()
@@ -102,7 +97,6 @@ def generate_message_text():
     prices = get_market_data()
     current_news = generate_live_news()
     
-    # Error ကင်းဝေးစေရန် စိတ်ချရသော HTML tag ပုံစံသို့ ပြောင်းလဲထားပါသည်
     text = (
         f"✨ <b>မင်္ဂလာရှိသောနေ့လေးဖြစ်ပါစေ</b> ✨ \n\n"
         f"📊 <b>Market Update</b>\n\n"
@@ -121,7 +115,6 @@ def generate_message_text():
 def send_update():
     text = generate_message_text()
     try:
-        # Markdown အစား စိတ်ချရဆုံး HTML parse_mode သို့ ပြောင်းလဲထားသည်
         bot.send_message(MY_ID, text, parse_mode="HTML")
         print("Message sent successfully!")
     except Exception as e:
@@ -132,12 +125,12 @@ def manual_price(message):
     send_update()
 
 def auto_update_worker():
-    print("Auto Update Thread Started (4-Hour Interval)...")
-    time.sleep(5)  # Bot စတာနဲ့ ၅ စက္ကန့်အတွင်း ပထမဆုံးစာ ချက်ချင်းထွက်လာစေရန်
+    print("Auto Update Thread Started...")
+    time.sleep(5)
     send_update()
     
     while True:
-        time.sleep(14400)  # ကွက်တိ ၄ နာရီ စောင့်ပြီးမှ နောက်တစ်စောင်စီ Auto ပို့မည်
+        time.sleep(14400)  # ၄ နာရီတစ်ခါ Auto ပို့မည်
         send_update()
 
 if __name__ == "__main__":

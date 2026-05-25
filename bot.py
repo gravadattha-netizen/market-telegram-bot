@@ -5,46 +5,28 @@ from flask import Flask
 
 app = Flask(__name__)
 
-# 🚨 TOKEN နှင့် CHAT_ID ကို အမှန်ကန်ဆုံး ပြန်ပြင်ပေးထားပါတယ်
 TG_TOKEN = "8646909789:AAHfAkmDGPgO1unJdxMl4EavLBDXM8V2mkc"
-TG_CHAT_ID = -1001940722388  # Chat ID အမှန်ကို ပြန်ပြောင်းထားသည်
+TG_CHAT_ID = "-1003940722388"
 
 @app.route('/send')
 def trigger_send():
-    prices = {
-        "BTC": f"${random.uniform(94150, 94850):,.2f}",
-        "ETH": f"${random.uniform(3410, 3460):,.2f}",
-        "GOLD": f"${random.uniform(4522, 4529):,.2f}"
-    }
-    
-    # Markdown အစား စိတ်အချရဆုံး HTML Format ပြောင်းလဲထားပါသည်
-    msg = (
-        "🌟 <b>Market Update</b>\n\n"
-        "₿ <b>BTC:</b> <code>" + prices['BTC'] + "</code>\n"
-        "Ξ <b>ETH:</b> <code>" + prices['ETH'] + "</code>\n"
-        "🟡 <b>Gold:</b> <code>" + prices['GOLD'] + "</code>\n\n"
-        "📢 သတင်း: ဈေးကွက် အပြောင်းအလဲများ ဆက်လက်ရှိနေပါသည်။"
-    )
-    
-    url = f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": TG_CHAT_ID,
-        "text": msg,
-        "parse_mode": "HTML"  # HTML သုံးထား၍ Error လုံးဝမတက်ပါ
-    }
-    
+    # Binance API မှ တိုက်ရိုက်ယူခြင်း
     try:
-        response = requests.post(url, json=payload, timeout=10)
-        if response.status_code == 200:
-            return "Message Sent Successfully to Telegram!"
-        else:
-            return f"Telegram API Error: {response.text}", response.status_code
-    except Exception as e:
-        return f"Network Error: {str(e)}", 500
+        r = requests.get("https://api.binance.com/api/v3/ticker/price?symbols=[\"BTCUSDT\",\"ETHUSDT\"]", timeout=5)
+        res = r.json()
+        prices = {item['symbol']: f"${float(item['price']):,.2f}" for item in res}
+    except:
+        prices = {"BTCUSDT": "N/A", "ETHUSDT": "N/A"}
+        
+    msg = f"🚀 *Binance Live Market*\nBTC: {prices['BTCUSDT']}\nETH: {prices['ETHUSDT']}\n\n📢 *News Summary*\nဈေးကွက် အပြောင်းအလဲများ ဆက်လက်ရှိနေပါသည်။"
+    
+    requests.post(f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage", 
+                  json={"chat_id": TG_CHAT_ID, "text": msg, "parse_mode": "Markdown"})
+    return "Message Sent!"
 
 @app.route('/')
 def home():
-    return "Bot is Active and Ready!"
+    return "Bot is Live!"
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))

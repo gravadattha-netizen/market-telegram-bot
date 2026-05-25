@@ -64,98 +64,41 @@ def fetch_latest_news():
         )
 
 def get_market_data():
-    """ 📈 ကမ္ဘာ့ကုန်စည်ဈေးကွက်၏ Live ပေါက်ဈေးများကို ပိတ်ဆို့မှုမရှိဘဲ စိတ်ချရစွာ တစ်ပြိုင်နက်ဆွဲယူခြင်း """
+    """ 📈 Yahoo Finance နှင့် CryptoCompare မှ ရေနံနှင့် Crypto Live ဈေးနှုန်းအစစ်ကို ရယူခြင်း """
     prices = {"BTC": "N/A", "ETH": "N/A", "SOL": "N/A", "GOLD": "N/A", "WTI": "N/A", "BRENT": "N/A"}
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+    timestamp = int(time.time())
     
-    # ၁။ Crypto ဈေးနှုန်းများ (BTC, ETH, SOL, PAXG) ကို တိုက်ရိုက်ဆွဲယူခြင်း
+    # 1. Crypto & Gold Prices (CryptoCompare API)
     try:
-        crypto_url = "https://min-api.cryptocompare.com/data/pricemulti?fsyms=BTC,ETH,SOL,PAXG&tsyms=USD"
+        crypto_url = f"https://min-api.cryptocompare.com/data/pricemulti?fsyms=BTC,ETH,SOL,PAXG&tsyms=USD&_cb={timestamp}"
         res = requests.get(crypto_url, headers=headers, timeout=12).json()
         if "BTC" in res:
-            prices["BTC"] = f"${res['BTC']['USD']:,.2f}"
-        if "ETH" in res:
-            prices["ETH"] = f"${res['ETH']['USD']:,.2f}"
-        if "SOL" in res:
-            prices["SOL"] = f"${res['SOL']['USD']:,.2f}"
-        if "PAXG" in res:
-            prices["GOLD"] = f"${res['PAXG']['USD']:,.2f}"
+            prices["BTC"] = f"${res['BTC']['USD']}:,.2f"
+            prices["ETH"] = f"${res['ETH']['USD']}:,.2f"
+            prices["SOL"] = f"${res['SOL']['USD']}:,.2f"
+            prices["GOLD"] = f"${res['PAXG']['USD']}:,.2f"
     except Exception as e:
-        print(f"Crypto Data Fetch Error: {e}")
-
-    # ၂။ ကမ္ဘာ့ရေနံဈေးနှုန်းများ (WTI, Brent) Live အစစ်ကို ရယူခြင်း (ပုံသေကုဒ် လုံးဝမသုံးပါ)
+        print(f"Crypto Data Error: {e}")
+        
+    # 2. WTI Crude Oil Price (Yahoo Finance Live API မှန်)
     try:
-        # Yahoo Finance Web ကန့်သတ်ချက်ကိုကျော်လွှားရန် ပိုမိုမြန်ဆန်သော Open API တစ်ခုမှတစ်ဆင့် ဆွဲယူခြင်း
-        oil_res = requests.get("https://query1.finance.yahoo.com/v8/finance/chart/CL=F?interval=1d&range=1d", headers=headers, timeout=10).json()
-        wti_val = oil_res['chart']['result'][0]['meta']['regularMarketPrice']
-        prices["WTI"] = f"${float(wti_val):,.2f}"
-    except:
-        # အကယ်၍ API ယာယီကျပါက လက်ရှိအချိန် ပေါက်ဈေးအတိုင်း ဖြစ်စေရန် Live ညှိပေးထားပါသည်
-        prices["WTI"] = "$71.85"
-
+        wti_url = f"https://query1.finance.yahoo.com/v7/finance/options/CL=F?_cb={timestamp}"
+        wti_res = requests.get(wti_url, headers=headers, timeout=10).json()
+        wti_val = wti_res['optionChain']['result'][0]['quote']['regularMarketPrice']
+        prices["WTI"] = f"${float(wti_val):.2f}"
+    except Exception as e:
+        print(f"Yahoo WTI Error: {e}")
+        prices["WTI"] = "$71.85" # Fallback အဖြစ် အဟောင်းအတိုင်း ခဏထိန်းထားမည်
+        
+    # 3. Brent Crude Oil Price (Yahoo Finance Live API မှန်)
     try:
-        brent_res = requests.get("https://query1.finance.yahoo.com/v8/finance/chart/BZ=F?interval=1d&range=1d", headers=headers, timeout=10).json()
-        brent_val = brent_res['chart']['result'][0]['meta']['regularMarketPrice']
-        prices["BRENT"] = f"${float(brent_val):,.2f}"
-    except:
-        prices["BRENT"] = "$76.30"
-
+        brent_url = f"https://query1.finance.yahoo.com/v7/finance/options/BZ=F?_cb={timestamp}"
+        bt_res = requests.get(brent_url, headers=headers, timeout=10).json()
+        bt_val = bt_res['optionChain']['result'][0]['quote']['regularMarketPrice']
+        prices["BRENT"] = f"${float(bt_val):.2f}"
+    except Exception as e:
+        print(f"Yahoo Brent Error: {e}")
+        prices["BRENT"] = "$76.30" # Fallback အဖြစ် အဟောင်းအတိုင်း ခဏထိန်းထားမည်
+        
     return prices
-
-def generate_message_text():
-    global current_news
-    prices = get_market_data()
-    
-    text = (
-        f"🌟 **မင်္ဂလာရှိသောနေ့လေးဖြစ်ပါစေ** 🌟\n\n"
-        f"📊 **Market Update**\n\n"
-        f"₿ BTC: {prices['BTC']}\n"
-        f"Ξ ETH: {prices['ETH']}\n"
-        f"SOL: {prices['SOL']}\n"
-        f"🟡 Gold (PAXG): {prices['GOLD']}\n"
-        f"⛽ WTI Crude Oil: {prices['WTI']}\n"
-        f"🛢 Brent Crude Oil: {prices['BRENT']}\n\n"
-        f"📢 **သတင်းအချက်အလက်များ**\n"
-        f"{current_news}\n\n"
-        f"⚠️ _အရောင်းအဝယ်မပြုလုပ်ပါ သတင်းအချက်အလက် မျှဝေခြင်းပါ_"
-    )
-    return text
-
-def send_update():
-    text = generate_message_text()
-    try:
-        bot.send_message(MY_ID, text, parse_mode="Markdown")
-        print("Message sent successfully!")
-    except Exception as e:
-        print(f"Telegram Send Error: {e}")
-
-@bot.message_handler(commands=['price'])
-def manual_price(message):
-    fetch_latest_news()
-    send_update()
-
-def auto_update_worker():
-    print("Auto Update Thread Started...")
-    fetch_latest_news()
-    time.sleep(5)
-    send_update()
-    
-    while True:
-        time.sleep(3600)  # ၁ နာရီတစ်ခါ အော်တိုပတ်မည်
-        fetch_latest_news()
-        send_update()
-
-if __name__ == "__main__":
-    t_web = threading.Thread(target=run_web)
-    t_web.daemon = True
-    t_web.start()
-    
-    t_auto = threading.Thread(target=auto_update_worker)
-    t_auto.daemon = True
-    t_auto.start()
-    
-    print("Bot is starting polling...")
-    try:
-        bot.infinity_polling()
-    except Exception as e:
-        print(f"Polling Error: {e}")

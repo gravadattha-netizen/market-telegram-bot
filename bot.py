@@ -1,9 +1,11 @@
-import os, random, requests
+import os
+import random
+import requests
 from flask import Flask
 
 app = Flask('')
 
-TG_TOKEN = "8646909789:AAHfAkmDGPg01unJdxM14EavLBDXM8V2mkc"
+TG_TOKEN = "8646909789:AAHfAkmDGPgO1unJdxMl4EavLBDXM8V2mkc"
 TG_CHAT_ID = "-1003940722388"
 
 @app.route('/send')
@@ -25,8 +27,5 @@ def home():
     return "Bot is Active!"
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
-
-if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)

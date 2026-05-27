@@ -1,8 +1,8 @@
-import os
 import time
 import requests
 import threading
 import random
+import os
 from flask import Flask
 import telebot
 
@@ -10,7 +10,7 @@ app = Flask('')
 
 @app.route('/')
 def home():
-    return "Market Bot (Telegram + Viber) is Active!"
+    return "Market Bot (Telegram + Viber) with Sentiment is Active!"
 
 def run_web():
     port = int(os.environ.get("PORT", 10000))
@@ -22,7 +22,6 @@ TG_CHAT_ID = "-1003940722388"
 bot = telebot.TeleBot(TG_TOKEN)
 
 # ======= [ 2. VIBER CONFIG ] =======
-# အစ်ကို့ Community အတွက် ကွက်တိ ရှာဖွေပြင်ဆင်ပေးထားသော ID အစစ်ဖြစ်ပါသည်
 VIBER_TOKEN = "515a44391e843e1d-c6a85536be62b3df-ef03348c4de8da51"
 VIBER_CHAT_ID = "gM7EonpInpS+560GZ/258w=="
 
@@ -61,6 +60,24 @@ def generate_live_news():
     )
     return formatted_news
 
+# Crypto Fear & Greed Index လှမ်းယူမည့် Function
+def get_crypto_sentiment():
+    try:
+        res = requests.get("https://api.alternative.me/fng/", timeout=10).json()
+        value = res['data'][0]['value']
+        status = res['data'][0]['value_classification']
+        
+        # မြန်မာလို အဓိပ္ပာယ်ပြန်ပေးခြင်း
+        status_mm = "အရမ်းကြောက်လန့်နေကြသည် (Extreme Fear)"
+        if "Fear" in status and "Extreme" not in status: status_mm = "ကြောက်လန့်နေကြသည် (Fear)"
+        elif "Neutral" in status: status_mm = "ပုံမှန်အခြေအနေ (Neutral)"
+        elif "Greed" in status and "Extreme" not in status: status_mm = "လောဘတက်နေကြသည် (Greed)"
+        elif "Extreme Greed" in status: status_mm = "အရမ်းလောဘတက်နေကြသည် (Extreme Greed)"
+            
+        return f"{value} / 100 ({status_mm})"
+    except:
+        return "N/A"
+
 def get_market_data():
     prices = {"BTC": "N/A", "ETH": "N/A", "SOL": "N/A", "GOLD": "N/A", "WTI": "N/A", "BRENT": "N/A"}
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
@@ -98,6 +115,7 @@ def get_market_data():
 def generate_message_text(is_viber=False):
     prices = get_market_data()
     current_news = generate_live_news()
+    sentiment = get_crypto_sentiment()
     
     b = "*" if is_viber else "**"
     
@@ -110,6 +128,8 @@ def generate_message_text(is_viber=False):
         f"🟡 Gold (PAXG): {prices['GOLD']}\n"
         f"⛽ WTI Crude: {prices['WTI']}\n"
         f"🛢 Brent Crude: {prices['BRENT']}\n\n"
+        f"💡 {b}Crypto Sentiment Index{b}\n"
+        f"📈 Fear & Greed: {sentiment}\n\n"
         f"📢 {b}သတင်းအချက်အလက်များ{b}\n"
         f"{current_news}\n\n"
         f"⚠️ _အရောင်းအဝယ်မပြုလုပ်ပါ သတင်းအချက်အလက် မျှဝေခြင်းပါ_"
@@ -130,7 +150,7 @@ def send_update_to_all():
     viber_url = "https://chatapi.viber.com/pa/send_message"
     viber_headers = {"X-Viber-Auth-Token": VIBER_TOKEN}
     viber_payload = {
-        "chat_id": VIBER_CHAT_ID,  # Community အတွက် 'chat_id' ကို အသုံးပြုရပါသည်
+        "chat_id": VIBER_CHAT_ID,
         "min_api_version": 1,
         "sender": {"name": "Market Live Report"},
         "type": "text",

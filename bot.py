@@ -8,112 +8,112 @@ import google.generativeai as genai
 
 app = Flask('')
 
+# ဒေတာများကို Analytics အတွက် သိမ်းဆည်းရန်
 current_market_cache = {
     "prices": {"BTC": 0, "ETH": 0, "SOL": 0, "GOLD": 0, "WTI": 0, "BRENT": 0},
     "display_prices": {"BTC": "0", "ETH": "0", "SOL": "0", "GOLD": "0", "WTI": "0", "BRENT": "0"},
-    "fng": "50 Neutral",
+    "fng": "N/A",
     "ai_news": "စနစ်ကို စတင်နေပါသည်...",
-    "last_update": "N/A",
-    "crypto_gauge": 50,
-    "oil_gauge": 50,
-    "gold_gauge": 50
+    "last_update": "N/A"
 }
 
-# ======= [ HTML + APEXCHARTS GAUGE UI ] =======
+# ======= [ HTML + CHART.JS DASHBOARD UI ] =======
 DASHBOARD_HTML = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🚀 Pro Market Analytics Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚀 Pro Market Analytics</title>
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght=600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
-        body { background-color: #050a18; color: #e2e8f0; padding: 8px; overflow-x: hidden; }
-        .container { max-width: 100%; margin: 0 auto; }
-        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px solid #1e293b; padding-bottom: 4px; }
-        h1 { font-size: 0.95rem; background: linear-gradient(to right, #38bdf8, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; }
-        .sync-time { color: #64748b; font-size: 0.6rem; font-weight: bold; }
+        body { background-color: #050a18; color: #e2e8f0; padding: 1.5rem; }
+        .container { max-width: 1300px; margin: 0 auto; }
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+        h1 { font-size: 1.6rem; background: linear-gradient(to right, #38bdf8, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; }
         
-        .top-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-bottom: 8px; }
-        .stat-card { background: #0f172a; padding: 4px 2px; border-radius: 8px; border: 1px solid #1e293b; text-align: center; }
-        .label { font-size: 0.55rem; color: #64748b; font-weight: 600; text-transform: uppercase; margin-bottom: 1px; }
-        .val { font-size: 0.75rem; font-weight: 700; }
+        .top-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+        .stat-card { background: #0f172a; padding: 1.2rem; border-radius: 16px; border: 1px solid #1e293b; transition: 0.3s; }
+        .stat-card:hover { border-color: #38bdf8; transform: translateY(-3px); }
+        .label { font-size: 0.75rem; color: #64748b; font-weight: 600; text-transform: uppercase; margin-bottom: 0.5rem; }
+        .val { font-size: 1.4rem; font-weight: 700; }
         
-        .gauges-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 8px; }
-        .gauge-panel { background: #0f172a; border-radius: 10px; padding: 6px 2px; border: 1px solid #1e293b; text-align: center; }
-        .gauge-title { font-size: 0.65rem; color: #94a3b8; font-weight: 600; margin-bottom: 2px; }
+        .charts-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; }
+        @media (max-width: 900px) { .charts-grid { grid-template-columns: 1fr; } }
         
-        .panel { background: #0f172a; border-radius: 10px; padding: 6px; border: 1px solid #1e293b; margin-bottom: 6px; }
-        .panel-title { font-size: 0.7 glam; margin-bottom: 4px; color: #94a3b8; font-weight: 600; }
-        .ai-content { font-size: 0.65rem; line-height: 1.5; color: #cbd5e1; white-space: pre-line; }
+        .panel { background: #0f172a; border-radius: 20px; padding: 1.5rem; border: 1px solid #1e293b; }
+        .panel-title { font-size: 1rem; margin-bottom: 1.2rem; color: #94a3b8; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; }
+        
+        .ai-content { font-size: 0.95rem; line-height: 1.8; color: #cbd5e1; white-space: pre-line; }
+        .fng-meter { text-align: center; padding: 1rem; border-radius: 12px; background: #1e293b; font-weight: 700; color: #38bdf8; font-size: 1.2rem; }
     </style>
+    <meta http-equiv="refresh" content="60">
 </head>
 <body>
     <div class="container">
         <header>
-            <div><h1>KYAW GYI ANALYTICS ⚡</h1></div>
-            <div class="sync-time">{{ data.last_update }}</div>
+            <div><h1>KYAW GYI ANALYTICS ⚡</h1><p style="color: #64748b; font-size: 0.8rem;">Intelligence-Driven Market Monitoring</p></div>
+            <div style="text-align: right;"><p style="color: #64748b; font-size: 0.8rem;">Last Sync</p><p style="font-weight: 600;">{{ data.last_update }}</p></div>
         </header>
 
         <div class="top-row">
-            <div class="stat-card"><div class="label">BTC</div><div class="val" style="color:#f59e0b">{{ data.display_prices.BTC.replace('$','').split('.')[0] }}</div></div>
-            <div class="stat-card"><div class="label">ETH</div><div class="val" style="color:#6366f1">{{ data.display_prices.ETH.replace('$','').split('.')[0] }}</div></div>
-            <div class="stat-card"><div class="label">SOL</div><div class="val" style="color:#14b8a6">{{ data.display_prices.SOL.replace('$','') }}</div></div>
-            <div class="stat-card"><div class="label">GOLD</div><div class="val" style="color:#eab308">{{ data.display_prices.GOLD.replace('$','').split('.')[0] }}</div></div>
-            <div class="stat-card"><div class="label">WTI</div><div class="val" style="color:#ef4444">{{ data.display_prices.WTI.replace('$','') }}</div></div>
-            <div class="stat-card"><div class="label">BRENT</div><div class="val" style="color:#ff6b6b">{{ data.display_prices.BRENT.replace('$','') }}</div></div>
+            <div class="stat-card"><div class="label">BTC/USD</div><div class="val" style="color:#f59e0b">{{ data.display_prices.BTC }}</div></div>
+            <div class="stat-card"><div class="label">ETH/USD</div><div class="val" style="color:#6366f1">{{ data.display_prices.ETH }}</div></div>
+            <div class="stat-card"><div class="label">SOL/USD</div><div class="val" style="color:#14b8a6">{{ data.display_prices.SOL }}</div></div>
+            <div class="stat-card"><div class="label">Gold Oz</div><div class="val" style="color:#eab308">{{ data.display_prices.GOLD }}</div></div>
+            <div class="stat-card"><div class="label">Oil Brent</div><div class="val" style="color:#ef4444">{{ data.display_prices.BRENT }}</div></div>
         </div>
 
-        <div class="gauges-grid">
-            <div class="gauge-panel">
-                <div class="gauge-title">🪙 ခရစ်တို</div>
-                <div id="cryptoGauge"></div>
+        <div class="charts-grid">
+            <div class="panel">
+                <div class="panel-title">📈 Asset Performance Comparison</div>
+                <div id="performanceChart"></div>
             </div>
-            <div class="gauge-panel">
-                <div class="gauge-title">🛢 ရေနံ</div>
-                <div id="oilGauge"></div>
-            </div>
-            <div class="gauge-panel">
-                <div class="gauge-title">🟡 ရွှေ</div>
-                <div id="goldGauge"></div>
+            <div class="panel">
+                <div class="panel-title">📊 Market Sentiment</div>
+                <div class="fng-meter">{{ data.fng }}</div>
+                <div id="gaugeChart" style="margin-top:1rem;"></div>
             </div>
         </div>
 
         <div class="panel">
-            <div class="panel-title">📢 AI Deep Analysis (F&G: {{ data.fng.split(' ')[0] }})</div>
+            <div class="panel-title">📢 AI Deep Analysis & Market Insights</div>
             <div class="ai-content">{{ data.ai_news }}</div>
         </div>
     </div>
 
     <script>
-        function getGaugeColor(value) { return value >= 50 ? '#10b981' : '#ef4444'; }
-        function createGaugeOptions(value, labelText) {
-            return {
-                series: [value],
-                chart: { type: 'radialBar', height: 105, sparkline: { enabled: true } },
-                plotOptions: {
-                    radialBar: {
-                        startAngle: -90, endAngle: 90,
-                        track: { background: '#1e293b', strokeWidth: '97%' },
-                        dataLabels: {
-                            name: { show: true, offsetY: 12, fontSize: '8px', color: '#64748b', fontWeight: 600 },
-                            value: { offsetY: -14, fontSize: '11px', fontWeight: 700, color: '#ffffff',
-                                formatter: function(val) { return val >= 50 ? 'BUY' : 'SELL'; }
-                            }
-                        }
-                    }
-                },
-                fill: { colors: [getGaugeColor(value)] },
-                labels: [labelText],
-                theme: { mode: 'dark' }
-            };
-        }
-        new ApexCharts(document.querySelector("#cryptoGauge"), createGaugeOptions({{ data.crypto_gauge }}, 'Crypto')).render();
-        new ApexCharts(document.querySelector("#oilGauge"), createGaugeOptions({{ data.oil_gauge }}, 'Oil')).render();
-        new ApexCharts(document.querySelector("#goldGauge"), createGaugeOptions({{ data.gold_gauge }}, 'Gold')).render();
+        // Data Performance Chart
+        var options = {
+            series: [{
+                name: 'Price Value',
+                data: [{{ data.prices.BTC }}, {{ data.prices.ETH }}, {{ data.prices.SOL }}, {{ data.prices.GOLD }}]
+            }],
+            chart: { type: 'bar', height: 300, toolbar: {show: false}, fontFamily: 'Plus Jakarta Sans' },
+            colors: ['#38bdf8'],
+            plotOptions: { bar: { borderRadius: 8, columnWidth: '40%', } },
+            xaxis: { categories: ['BTC', 'ETH', 'SOL', 'GOLD'], labels: {style: {colors: '#64748b'}} },
+            theme: { mode: 'dark' },
+            grid: { borderColor: '#1e293b' }
+        };
+        new ApexCharts(document.querySelector("#performanceChart"), options).render();
+
+        // Gauge Chart for Sentiment
+        var gaugeOptions = {
+            series: [{{ data.fng.split(' ')[0] }}],
+            chart: { height: 250, type: 'radialBar', },
+            plotOptions: {
+                radialBar: {
+                    hollow: { size: '70%', },
+                    dataLabels: { name: {show: false}, value: { color: '#38bdf8', fontSize: '30px', fontWeight: 700, show: true } }
+                }
+            },
+            colors: ['#38bdf8'],
+            labels: ['Sentiment'],
+        };
+        new ApexCharts(document.querySelector("#gaugeChart"), gaugeOptions).render();
     </script>
 </body>
 </html>
@@ -127,82 +127,53 @@ def run_web():
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
 
-# ======= [ TELEGRAM & GEMINI CONFIG ] =======
+# ======= [ 1. TELEGRAM CONFIG ] =======
 TG_TOKEN = "8646909789:AAHfAkmDGPgO1unJdxMl4EavLBDXM8V2mkc"
+TG_CHAT_ID = "-1003940722388"
 bot = telebot.TeleBot(TG_TOKEN)
 
-# သက်တမ်းကုန်သွားသော Key နေရာတွင် အသစ်စက်စက် Key ဖြင့် အစားထိုးထားသည်
-GENAI_API_KEY = "AIzaSyDE0tV" + "m05T8y6Yg8" + "fW96B6Y" + "W8C_S_G_V0"
+# ======= [ 2. GEMINI AI CONFIG ] =======
+GENAI_API_KEY = "AIzaSyAKM5IAugwBdKxrWQ__igkDwjwITW6f2kc"
 genai.configure(api_key=GENAI_API_KEY)
-ai_model = genai.GenerativeModel('gemini-1.5-flash') # ပိုမိုမြန်ဆန်ပြီး တည်ငြိမ်သော Flash Model သို့ ပြောင်းထားသည်
+ai_model = genai.GenerativeModel('gemini-pro')
 
-# ======= [ GROUP MESSAGE HANDLER ] =======
-@bot.message_handler(func=lambda message: True)
-def handle_group_messages(message):
-    user_text = message.text
-    if not user_text:
-        return
-
-    # မန်ဘာတင်သမျှ ဈေးနှုန်း၊ သတင်း နှင့် /price command များကို ဖတ်မည့်စနစ်
-    keywords = ["mops", "singapore", "10ppm", "92r", "95r", "97r", "price", "ဈေး", "/price", "သတင်း"]
-    if any(kw in user_text.lower() for kw in keywords):
-        try:
-            # /price သီးသန့်ရိုက်လာလျှင် လက်ရှိ Cache ထဲက ဈေးနှုန်းများကို AI ဆီပို့ပြီး သုံးသပ်ခိုင်းမည်
-            if user_text.strip() == "/price":
-                input_data = f"Current Market Data to analyze:\n{str(current_market_cache['display_prices'])}\nFear & Greed: {current_market_cache['fng']}"
-            else:
-                input_data = user_text
-
-            prompt = (
-                f"Analyze the following market/fuel data and write a response in Burmese language. "
-                f"Be informative, highly engaging, and helpful for traders. Keep it under 4-5 sentences.\n\n"
-                f"Data:\n{input_data}"
-            )
-            
-            response = ai_model.generate_content(prompt)
-            ai_reply = response.text
-            
-            bot.reply_to(message, f"📊 **Market Intelligence Update**\n\n{ai_reply}")
-        except Exception as e:
-            print(f"!!! GEMINI AI ERROR DETECTED: {e}") # Render Logs ထဲတွင် Error အတိအကျ မြင်ရအောင် ထုတ်ပေးခြင်း
-            bot.reply_to(message, "⚠️ လက်ရှိတွင် ဈေးကွက်ဒေတာများကို ခွဲခြမ်းစိတ်ဖြာရန် အခက်အခဲရှိနေပါသည်။")
-
-# ======= [ BACKGROUND DATA FETCHERS ] =======
 def fetch_latest_news_headlines():
     try:
         urls = [
             "https://news.google.com/rss/search?q=crypto+bitcoin&hl=en-US&gl=US&ceid=US:en",
-            "https://news.google.com/rss/search?q=crude+oil+wti+brent&hl=en-US&gl=US&ceid=US:en"
+            "https://news.google.com/rss/search?q=crude+oil+wti+brent&hl=en-US&gl=US&ceid=US:en",
+            "https://news.google.com/rss/search?q=gold+market+price&hl=en-US&gl=US&ceid=US:en"
         ]
         headlines = []
         headers = {"User-Agent": "Mozilla/5.0"}
         for url in urls:
             res = requests.get(url, headers=headers, timeout=10).text
-            items = res.split("<item>")[1:3]
+            items = res.split("<item>")[1:4]
             for item in items:
                 title = item.split("<title>")[1].split("</title>")[0]
                 headlines.append(title)
         return "\n".join(headlines)
-    except: return "Routine market data sync."
+    except Exception as e:
+        return "Routine market data sync."
 
 def generate_ai_market_sentiment(prices_text, raw_news):
     try:
         prompt = (
             f"Current prices:\n{prices_text}\nNews:\n{raw_news}\n"
-            f"Write a brief market summary in Burmese for a trading dashboard. Max 2 sentences."
+            f"Write a brief market analysis in Burmese. Be professional. Concise."
         )
         response = ai_model.generate_content(prompt)
         return response.text
-    except: return "ယနေ့ဈေးကွက်အတွင်း ပုံမှန်လှုပ်ခတ်မှုများရှိနေပြီး ထူးခြားသော သတင်းကြီးများ မရှိသေးပါ။"
+    except:
+        return "ဈေးကွက်ပုံမှန်အတိုင်းရှိနေပါသည်။"
 
 def get_market_data():
     prices = {"BTC": 0, "ETH": 0, "SOL": 0, "GOLD": 0, "WTI": 0, "BRENT": 0}
     disp = {"BTC": "0", "ETH": "0", "SOL": "0", "GOLD": "0", "WTI": "0", "BRENT": "0"}
     headers = {"User-Agent": "Mozilla/5.0"}
-    timestamp = int(time.time())
     
     try:
-        crypto_url = f"https://min-api.cryptocompare.com/data/pricemulti?fsyms=BTC,ETH,SOL,PAXG&tsyms=USD&_cb={timestamp}"
+        crypto_url = f"https://min-api.cryptocompare.com/data/pricemulti?fsyms=BTC,ETH,SOL,PAXG&tsyms=USD"
         res = requests.get(crypto_url, headers=headers, timeout=12).json()
         if "BTC" in res:
             prices["BTC"] = res['BTC']['USD']
@@ -214,54 +185,41 @@ def get_market_data():
     except: pass
 
     try:
-        oil_url = f"https://query1.finance.yahoo.com/v8/finance/chart/CL=F?interval=1d&range=1d&_cb={timestamp}"
-        wti_res = requests.get(oil_url, headers=headers, timeout=10).json()
-        prices["WTI"] = wti_res['chart']['result'][0]['meta']['regularMarketPrice']
-        disp["WTI"] = f"${float(prices['WTI']):,.2f}"
-    except: disp["WTI"] = "$89.89"
-
-    try:
-        oil_url2 = f"https://query1.finance.yahoo.com/v8/finance/chart/BZ=F?interval=1d&range=1d&_cb={timestamp}"
-        bt_res = requests.get(oil_url2, headers=headers, timeout=10).json()
+        oil_url = f"https://query1.finance.yahoo.com/v8/finance/chart/BZ=F?interval=1d&range=1d"
+        bt_res = requests.get(oil_url, headers=headers, timeout=10).json()
         prices["BRENT"] = bt_res['chart']['result'][0]['meta']['regularMarketPrice']
         disp["BRENT"] = f"${float(prices['BRENT']):,.2f}"
-    except: disp["BRENT"] = "$93.20"
+    except: disp["BRENT"] = "$0.00"
 
     return prices, disp
 
-def get_fng_value():
+def get_fng():
     try:
         res = requests.get("https://api.alternative.me/fng/").json()
-        val = int(res['data'][0]['value'])
-        lbl = res['data'][0]['value_classification']
-        return val, f"{val} {lbl}"
-    except: return 22, "22 Extreme Fear"
+        return f"{res['data'][0]['value']} {res['data'][0]['value_classification']}"
+    except: return "50 Neutral"
 
 def update_all():
     prices, disp = get_market_data()
-    fng_val, fng_lbl = get_fng_value()
+    fng = get_fng()
     news_hd = fetch_latest_news_headlines()
     ai_rep = generate_ai_market_sentiment(str(disp), news_hd)
     
-    current_market_cache["crypto_gauge"] = fng_val
-    current_market_cache["oil_gauge"] = 45 if prices["BRENT"] < 85 else 75
-    current_market_cache["gold_gauge"] = 80
-    
     current_market_cache["prices"] = prices
     current_market_cache["display_prices"] = disp
-    current_market_cache["fng"] = fng_lbl
+    current_market_cache["fng"] = fng
     current_market_cache["ai_news"] = ai_rep
-    current_market_cache["last_update"] = time.strftime("%I:%M %p")
+    current_market_cache["last_update"] = time.strftime("%Y-%m-%d %I:%M %p")
+    
+    msg = f"📊 **Market Update**\n\nBTC: {disp['BTC']}\nETH: {disp['ETH']}\nGOLD: {disp['GOLD']}\nOIL: {disp['BRENT']}\n\n💡 **AI Analysis**\n{ai_rep}"
+    try: bot.send_message(TG_CHAT_ID, msg, parse_mode="Markdown")
+    except: pass
 
 def auto_worker():
-    time.sleep(2)
-    update_all()
     while True:
-        time.sleep(14400)
         update_all()
+        time.sleep(14400)
 
 if __name__ == "__main__":
-    threading.Thread(target=run_web, daemon=True).start()
-    threading.Thread(target=auto_worker, daemon=True).start()
-    try: bot.infinity_polling()
-    except: pass
+    threading.Thread(target=lambda: app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000))), daemon=True).start()
+    auto_worker()

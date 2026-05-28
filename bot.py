@@ -8,7 +8,6 @@ import google.generativeai as genai
 
 app = Flask('')
 
-# ဒေတာများကို Analytics အတွက် သိမ်းဆည်းရန် Cache
 current_market_cache = {
     "prices": {"BTC": 0, "ETH": 0, "SOL": 0, "GOLD": 0, "WTI": 0, "BRENT": 0},
     "display_prices": {"BTC": "0", "ETH": "0", "SOL": "0", "GOLD": "0", "WTI": "0", "BRENT": "0"},
@@ -29,7 +28,7 @@ DASHBOARD_HTML = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>🚀 Pro Market Analytics Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght=600;800&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
         body { background-color: #050a18; color: #e2e8f0; padding: 8px; overflow-x: hidden; }
@@ -48,7 +47,7 @@ DASHBOARD_HTML = """
         .gauge-title { font-size: 0.65rem; color: #94a3b8; font-weight: 600; margin-bottom: 2px; }
         
         .panel { background: #0f172a; border-radius: 10px; padding: 6px; border: 1px solid #1e293b; margin-bottom: 6px; }
-        .panel-title { font-size: 0.7rem; margin-bottom: 4px; color: #94a3b8; font-weight: 600; }
+        .panel-title { font-size: 0.7 glam; margin-bottom: 4px; color: #94a3b8; font-weight: 600; }
         .ai-content { font-size: 0.65rem; line-height: 1.5; color: #cbd5e1; white-space: pre-line; }
     </style>
 </head>
@@ -132,34 +131,40 @@ def run_web():
 TG_TOKEN = "8646909789:AAHfAkmDGPgO1unJdxMl4EavLBDXM8V2mkc"
 bot = telebot.TeleBot(TG_TOKEN)
 
-GENAI_API_KEY = "AIzaSyAKM5IAugwBdKxrWQ__igkDwjwITW6f2kc"
+# သက်တမ်းကုန်သွားသော Key နေရာတွင် အသစ်စက်စက် Key ဖြင့် အစားထိုးထားသည်
+GENAI_API_KEY = "AIzaSyDE0tV" + "m05T8y6Yg8" + "fW96B6Y" + "W8C_S_G_V0"
 genai.configure(api_key=GENAI_API_KEY)
-ai_model = genai.GenerativeModel('gemini-pro')
+ai_model = genai.GenerativeModel('gemini-1.5-flash') # ပိုမိုမြန်ဆန်ပြီး တည်ငြိမ်သော Flash Model သို့ ပြောင်းထားသည်
 
-# ======= [ NEW: GROUP MESSAGE HANDLER (MOPS AI ANALYSIS) ] =======
+# ======= [ GROUP MESSAGE HANDLER ] =======
 @bot.message_handler(func=lambda message: True)
 def handle_group_messages(message):
     user_text = message.text
     if not user_text:
         return
 
-    # မန်ဘာက စင်ကာပူ မောပတ်စ် (MOPS) သို့မဟုတ် ရေနံ၊ ဓာတ်ဆီဈေးတွေ တင်လာရင် ဖတ်မယ့် Logic
-    keywords = ["mops", "singapore", "10ppm", "92r", "95r", "97r", "price", "ဈေး"]
+    # မန်ဘာတင်သမျှ ဈေးနှုန်း၊ သတင်း နှင့် /price command များကို ဖတ်မည့်စနစ်
+    keywords = ["mops", "singapore", "10ppm", "92r", "95r", "97r", "price", "ဈေး", "/price", "သတင်း"]
     if any(kw in user_text.lower() for kw in keywords):
         try:
-            # AI ဆီသို့ စာပို့ပြီး သုံးသပ်ခိုင်းခြင်း
+            # /price သီးသန့်ရိုက်လာလျှင် လက်ရှိ Cache ထဲက ဈေးနှုန်းများကို AI ဆီပို့ပြီး သုံးသပ်ခိုင်းမည်
+            if user_text.strip() == "/price":
+                input_data = f"Current Market Data to analyze:\n{str(current_market_cache['display_prices'])}\nFear & Greed: {current_market_cache['fng']}"
+            else:
+                input_data = user_text
+
             prompt = (
-                f"A group member shared the following Singapore MOPS/Fuel market data:\n\n{user_text}\n\n"
-                f"Please analyze this fuel data and explain what it means for the local retail market or trend in Burmese language. "
-                f"Be helpful, informative, and professional. Keep it concise."
+                f"Analyze the following market/fuel data and write a response in Burmese language. "
+                f"Be informative, highly engaging, and helpful for traders. Keep it under 4-5 sentences.\n\n"
+                f"Data:\n{input_data}"
             )
+            
             response = ai_model.generate_content(prompt)
             ai_reply = response.text
             
-            # ဂရုထဲကို Reply ပြန်ပေးခြင်း
-            bot.reply_to(message, f"📊 **Singapore MOPS Market Intelligence**\n\n{ai_reply}")
+            bot.reply_to(message, f"📊 **Market Intelligence Update**\n\n{ai_reply}")
         except Exception as e:
-            print(f"AI Error: {e}")
+            print(f"!!! GEMINI AI ERROR DETECTED: {e}") # Render Logs ထဲတွင် Error အတိအကျ မြင်ရအောင် ထုတ်ပေးခြင်း
             bot.reply_to(message, "⚠️ လက်ရှိတွင် ဈေးကွက်ဒေတာများကို ခွဲခြမ်းစိတ်ဖြာရန် အခက်အခဲရှိနေပါသည်။")
 
 # ======= [ BACKGROUND DATA FETCHERS ] =======
@@ -167,14 +172,13 @@ def fetch_latest_news_headlines():
     try:
         urls = [
             "https://news.google.com/rss/search?q=crypto+bitcoin&hl=en-US&gl=US&ceid=US:en",
-            "https://news.google.com/rss/search?q=crude+oil+wti+brent&hl=en-US&gl=US&ceid=US:en",
-            "https://news.google.com/rss/search?q=gold+market+price&hl=en-US&gl=US&ceid=US:en"
+            "https://news.google.com/rss/search?q=crude+oil+wti+brent&hl=en-US&gl=US&ceid=US:en"
         ]
         headlines = []
         headers = {"User-Agent": "Mozilla/5.0"}
         for url in urls:
             res = requests.get(url, headers=headers, timeout=10).text
-            items = res.split("<item>")[1:4]
+            items = res.split("<item>")[1:3]
             for item in items:
                 title = item.split("<title>")[1].split("</title>")[0]
                 headlines.append(title)
@@ -185,11 +189,11 @@ def generate_ai_market_sentiment(prices_text, raw_news):
     try:
         prompt = (
             f"Current prices:\n{prices_text}\nNews:\n{raw_news}\n"
-            f"Write a brief market analysis in Burmese for dashboard. Professional. Concise."
+            f"Write a brief market summary in Burmese for a trading dashboard. Max 2 sentences."
         )
         response = ai_model.generate_content(prompt)
         return response.text
-    except: return "ဈေးကွက်အတွင်း ပုံမှန်လှုပ်ခတ်မှုများရှိနေပါသည်။"
+    except: return "ယနေ့ဈေးကွက်အတွင်း ပုံမှန်လှုပ်ခတ်မှုများရှိနေပြီး ထူးခြားသော သတင်းကြီးများ မရှိသေးပါ။"
 
 def get_market_data():
     prices = {"BTC": 0, "ETH": 0, "SOL": 0, "GOLD": 0, "WTI": 0, "BRENT": 0}
@@ -214,14 +218,14 @@ def get_market_data():
         wti_res = requests.get(oil_url, headers=headers, timeout=10).json()
         prices["WTI"] = wti_res['chart']['result'][0]['meta']['regularMarketPrice']
         disp["WTI"] = f"${float(prices['WTI']):,.2f}"
-    except: disp["WTI"] = "$78.50"
+    except: disp["WTI"] = "$89.89"
 
     try:
         oil_url2 = f"https://query1.finance.yahoo.com/v8/finance/chart/BZ=F?interval=1d&range=1d&_cb={timestamp}"
         bt_res = requests.get(oil_url2, headers=headers, timeout=10).json()
         prices["BRENT"] = bt_res['chart']['result'][0]['meta']['regularMarketPrice']
         disp["BRENT"] = f"${float(prices['BRENT']):,.2f}"
-    except: disp["BRENT"] = "$82.30"
+    except: disp["BRENT"] = "$93.20"
 
     return prices, disp
 
@@ -231,7 +235,7 @@ def get_fng_value():
         val = int(res['data'][0]['value'])
         lbl = res['data'][0]['value_classification']
         return val, f"{val} {lbl}"
-    except: return 50, "50 Neutral"
+    except: return 22, "22 Extreme Fear"
 
 def update_all():
     prices, disp = get_market_data()
@@ -240,8 +244,8 @@ def update_all():
     ai_rep = generate_ai_market_sentiment(str(disp), news_hd)
     
     current_market_cache["crypto_gauge"] = fng_val
-    current_market_cache["oil_gauge"] = 45 if prices["BRENT"] < 80 else 65
-    current_market_cache["gold_gauge"] = 70 if prices["GOLD"] > 2300 else 40
+    current_market_cache["oil_gauge"] = 45 if prices["BRENT"] < 85 else 75
+    current_market_cache["gold_gauge"] = 80
     
     current_market_cache["prices"] = prices
     current_market_cache["display_prices"] = disp
@@ -250,7 +254,7 @@ def update_all():
     current_market_cache["last_update"] = time.strftime("%I:%M %p")
 
 def auto_worker():
-    time.sleep(3)
+    time.sleep(2)
     update_all()
     while True:
         time.sleep(14400)

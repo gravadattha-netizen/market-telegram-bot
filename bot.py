@@ -3,15 +3,87 @@ import requests
 import threading
 import random
 import os
-from flask import Flask
+from flask import Flask, render_template_string
 import telebot
 import google.generativeai as genai
 
 app = Flask('')
 
+# ရောဂါကင်းဝေးပြီး Global Variable အဖြစ် သိမ်းဆည်းရန်
+current_market_cache = {
+    "prices": {"BTC": "N/A", "ETH": "N/A", "SOL": "N/A", "GOLD": "N/A", "WTI": "N/A", "BRENT": "N/A"},
+    "fng": "N/A",
+    "ai_news": "ယနေ့ဈေးကွက်အတွင်း ပုံမှန်လှုပ်ခတ်မှုများရှိနေပြီး ထူးခြားသော သတင်းကြီးများ မရှိသေးပါ။",
+    "last_update": "N/A"
+}
+
+# ======= [ HTML + CSS DASHBOARD UI ] =======
+DASHBOARD_HTML = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⚡ Market Analytics Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background-color: #0f172a; color: #f8fafc; padding: 2rem; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; border-bottom: 1px solid #334155; padding-bottom: 1rem; }
+        h1 { font-size: 1.8rem; color: #38bdf8; }
+        .timestamp { color: #94a3b8; font-size: 0.9rem; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
+        .card { background: #1e293b; padding: 1.5rem; border-radius: 12px; border: 1px solid #334155; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .card-title { font-size: 0.85rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+        .card-value { font-size: 1.6rem; font-weight: 700; color: #f1f5f9; }
+        .btc { color: #f59e0b; } .eth { color: #6366f1; } .sol { color: #14b8a6; } .gold { color: #eab308; } .oil { color: #ef4444; }
+        .section-title { font-size: 1.2rem; margin-bottom: 1rem; color: #38bdf8; display: flex; align-items: center; gap: 0.5rem; }
+        .lower-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem; }
+        @media (max-width: 768px) { .lower-grid { grid-template-columns: 1fr; } }
+        .panel { background: #1e293b; padding: 1.5rem; border-radius: 12px; border: 1px solid #334155; }
+        .fng-badge { display: inline-block; padding: 0.5rem 1rem; background: #0284c7; border-radius: 20px; font-weight: 600; margin-top: 0.5rem; font-size: 1.1rem; }
+        .ai-box { line-height: 1.7; color: #cbd5e1; white-space: pre-line; font-size: 1rem; }
+    </style>
+    <meta http-equiv="refresh" content="60"> </head>
+<body>
+    <div class="container">
+        <header>
+            <div>
+                <h1>⚡ Kyaw Gyi Market Monitor</h1>
+                <p style="color: #64748b; font-size: 0.9rem; margin-top: 0.2rem;">Real-time Crypto, Gold & Energy Analytics Dashboard</p>
+            </div>
+            <div class="timestamp">🔄 Last Updated: {{ data.last_update }}</div>
+        </header>
+
+        <div class="grid">
+            <div class="card"><div class="card-title">₿ Bitcoin (BTC)</div><div class="card-value btc">{{ data.prices.BTC }}</div></div>
+            <div class="card"><div class="card-title">Ξ Ethereum (ETH)</div><div class="card-value eth">{{ data.prices.ETH }}</div></div>
+            <div class="card"><div class="card-title">🪐 Solana (SOL)</div><div class="card-value sol">{{ data.prices.SOL }}</div></div>
+            <div class="card"><div class="card-title">🟡 Gold (PAXG)</div><div class="card-value gold">{{ data.prices.GOLD }}</div></div>
+            <div class="card"><div class="card-title">⛽ WTI Crude Oil</div><div class="card-value oil">{{ data.prices.WTI }}</div></div>
+            <div class="card"><div class="card-title">🛢 Brent Crude Oil</div><div class="card-value oil">{{ data.prices.BRENT }}</div></div>
+        </div>
+
+        <div class="lower-grid">
+            <div class="panel">
+                <div class="section-title">📊 Crypto Sentiment</div>
+                <p style="color: #94a3b8; font-size: 0.9rem;">Fear & Greed Index Scale</p>
+                <div class="fng-badge">📈 {{ data.fng }}</div>
+            </div>
+            <div class="panel">
+                <div class="section-title">📢 AI Market Intelligence & Breaking News</div>
+                <div class="ai-box">{{ data.ai_news }}</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+"""
+
 @app.route('/')
 def home():
-    return "Market Bot (Telegram Only) with Gemini AI News is Active!"
+    return render_template_string(DASHBOARD_HTML, data=current_market_cache)
 
 def run_web():
     port = int(os.environ.get("PORT", 10000))
@@ -27,7 +99,6 @@ GENAI_API_KEY = "AIzaSyAKM5IAugwBdKxrWQ__igkDwjwITW6f2kc"
 genai.configure(api_key=GENAI_API_KEY)
 ai_model = genai.GenerativeModel('gemini-pro')
 
-# Google News RSS ကနေ လက်ရှိသတင်းခေါင်းစဉ်တွေ ဆွဲယူမည့် Function
 def fetch_latest_news_headlines():
     try:
         urls = [
@@ -37,20 +108,17 @@ def fetch_latest_news_headlines():
         ]
         headlines = []
         headers = {"User-Agent": "Mozilla/5.0"}
-        
         for url in urls:
             res = requests.get(url, headers=headers, timeout=10).text
-            items = res.split("<item>")[1:4]  # ကဏ္ဍတစ်ခုစီကနေ ထိပ်သီးသတင်း ၃ ခုစီယူမယ်
+            items = res.split("<item>")[1:4]
             for item in items:
                 title = item.split("<title>")[1].split("</title>")[0]
                 headlines.append(title)
-                
         return "\n".join(headlines)
     except Exception as e:
         print(f"News Fetch Error: {e}")
         return "No recent news headlines available."
 
-# Gemini AI ကနေ သတင်းတွေကို ဖတ်ပြီး ထူးခြားမှသာ ရေးပေးမည့် Function
 def generate_ai_market_sentiment(prices_text, raw_news):
     try:
         prompt = (
@@ -67,26 +135,23 @@ def generate_ai_market_sentiment(prices_text, raw_news):
         print(f"Gemini AI Error: {e}")
         return "ယနေ့ဈေးကွက်အတွင်း ပုံမှန်လှုပ်ခတ်မှုများရှိနေပြီး ထူးခြားသော သတင်းကြီးများ မရှိသေးပါ။"
 
-# Crypto Fear & Greed Index လှမ်းယူမည့် Function
 def get_crypto_sentiment():
     try:
         res = requests.get("https://api.alternative.me/fng/", timeout=10).json()
         value = res['data'][0]['value']
         status = res['data'][0]['value_classification']
-        
-        status_mm = "အရမ်းကြောက်လန့်နေကြသည် (Extreme Fear)"
-        if "Fear" in status and "Extreme" not in status: status_mm = "ကြောက်လန့်နေကြသည် (Fear)"
-        elif "Neutral" in status: status_mm = "ပုံမှန်အခြေအနေ (Neutral)"
-        elif "Greed" in status and "Extreme" not in status: status_mm = "လောဘတက်နေကြသည် (Greed)"
-        elif "Extreme Greed" in status: status_mm = "အရမ်းလောဘတက်နေကြသည် (Extreme Greed)"
-            
+        status_mm = "Extreme Fear"
+        if "Fear" in status and "Extreme" not in status: status_mm = "Fear"
+        elif "Neutral" in status: status_mm = "Neutral"
+        elif "Greed" in status and "Extreme" not in status: status_mm = "Greed"
+        elif "Extreme Greed" in status: status_mm = "Extreme Greed"
         return f"{value} / 100 ({status_mm})"
     except:
         return "N/A"
 
 def get_market_data():
     prices = {"BTC": "N/A", "ETH": "N/A", "SOL": "N/A", "GOLD": "N/A", "WTI": "N/A", "BRENT": "N/A"}
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+    headers = {"User-Agent": "Mozilla/5.0"}
     timestamp = int(time.time())
     
     try:
@@ -132,6 +197,12 @@ def generate_message_text():
     
     current_time = time.strftime("%I:%M %p", time.localtime(time.time() + 23400))
     
+    # 💥 Web Dashboard Cache ထဲသို့ Data များ ထည့်သွင်းသိမ်းဆည်းခြင်း
+    current_market_cache["prices"] = prices
+    current_market_cache["fng"] = fng_sentiment
+    current_market_cache["ai_news"] = ai_analysis_report
+    current_market_cache["last_update"] = time.strftime("%Y-%m-%d %I:%M %p", time.localtime(time.time() + 23400))
+    
     text = (
         f"🌟 **မင်္ဂလာရှိသောနေ့လေးဖြစ်ပါစေ** 🌟\n\n"
         f"📊 **Market Update ({current_time} Live)**\n\n"
@@ -150,11 +221,10 @@ def generate_message_text():
     return text
 
 def send_update_to_all():
-    # Telegram သို့သာ ပို့တော့မည် (Viber ဖြုတ်လိုက်ပါပြီ)
     tg_text = generate_message_text()
     try:
         bot.send_message(TG_CHAT_ID, tg_text, parse_mode="Markdown")
-        print("Telegram message sent successfully!")
+        print("Telegram message sent and Dashboard Cache updated successfully!")
     except Exception as e:
         print(f"Telegram Send Error: {e}")
 
@@ -168,7 +238,7 @@ def auto_update_worker():
     send_update_to_all()
     
     while True:
-        time.sleep(14400)  # ၄ နာရီတစ်ခါ အော်တိုပတ်မည်
+        time.sleep(14400)
         send_update_to_all()
 
 if __name__ == "__main__":

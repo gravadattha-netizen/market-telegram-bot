@@ -11,7 +11,7 @@ app = Flask('')
 
 @app.route('/')
 def home():
-    return "Market Bot (Telegram + Viber) with Gemini AI News is Active!"
+    return "Market Bot (Telegram Only) with Gemini AI News is Active!"
 
 def run_web():
     port = int(os.environ.get("PORT", 10000))
@@ -22,12 +22,7 @@ TG_TOKEN = "8646909789:AAHfAkmDGPgO1unJdxMl4EavLBDXM8V2mkc"
 TG_CHAT_ID = "-1003940722388"
 bot = telebot.TeleBot(TG_TOKEN)
 
-# ======= [ 2. VIBER CONFIG ] =======
-VIBER_TOKEN = "515a44391e843e1d-c6a85536be62b3df-ef03348c4de8da51"
-VIBER_CHAT_ID = "gM7EonpInpS+560GZ/258w=="
-
-# ======= [ 3. GEMINI AI CONFIG ] =======
-# ကျော်ကြီးရဲ့ Gemini API Key ကို ဒီနေရာမှာ ထည့်ပေးပါ
+# ======= [ 2. GEMINI AI CONFIG ] =======
 GENAI_API_KEY = "AIzaSyAKM5IAugwBdKxrWQ__igkDwjwITW6f2kc"
 genai.configure(api_key=GENAI_API_KEY)
 ai_model = genai.GenerativeModel('gemini-pro')
@@ -35,7 +30,6 @@ ai_model = genai.GenerativeModel('gemini-pro')
 # Google News RSS ကနေ လက်ရှိသတင်းခေါင်းစဉ်တွေ ဆွဲယူမည့် Function
 def fetch_latest_news_headlines():
     try:
-        # Crypto, Gold, Oil သတင်းခေါင်းစဉ်များကို စုစည်းယူခြင်း
         urls = [
             "https://news.google.com/rss/search?q=crypto+bitcoin&hl=en-US&gl=US&ceid=US:en",
             "https://news.google.com/rss/search?q=crude+oil+wti+brent&hl=en-US&gl=US&ceid=US:en",
@@ -46,8 +40,7 @@ def fetch_latest_news_headlines():
         
         for url in urls:
             res = requests.get(url, headers=headers, timeout=10).text
-            # RSS xml ထဲက <title> ခေါင်းစဉ်များကို သန့်စင်ပြီး ဆွဲထုတ်ခြင်း
-            items = res.split("<item>")[1:4]  # တစ်ခုချင်းစီကနေ ထိပ်သီးသတင်း ၃ ခုစီယူမယ်
+            items = res.split("<item>")[1:4]  # ကဏ္ဍတစ်ခုစီကနေ ထိပ်သီးသတင်း ၃ ခုစီယူမယ်
             for item in items:
                 title = item.split("<title>")[1].split("</title>")[0]
                 headlines.append(title)
@@ -57,22 +50,22 @@ def fetch_latest_news_headlines():
         print(f"News Fetch Error: {e}")
         return "No recent news headlines available."
 
-# Gemini AI ကနေ သတင်းတွေကို ဖတ်ပြီး မြန်မာလို အနှစ်ချုပ် သုံးသပ်ပေးမည့် Function
+# Gemini AI ကနေ သတင်းတွေကို ဖတ်ပြီး ထူးခြားမှသာ ရေးပေးမည့် Function
 def generate_ai_market_sentiment(prices_text, raw_news):
     try:
         prompt = (
             f"You are an expert market analyst. Based on these current prices:\n{prices_text}\n\n"
             f"And these current news headlines:\n{raw_news}\n\n"
-            f"Please write a comprehensive market sentiment analysis in Burmese language (မြန်မာဘာသာ). "
-            f"Include separate short analysis points for Crypto/Bitcoin, Gold, and Crude Oil (WTI/Brent) explaining why prices might be changing. "
-            f"Keep it professional, informative, easy to read, and formatted with clean bullet points. "
-            f"Do not use markdown bold inside your analysis block, just use plain Burmese text with spacing."
+            f"Please write a market sentiment analysis in Burmese language (မြန်မာဘာသာ).\n"
+            f"CRITICAL RULE: If the news headlines contain ordinary, routine updates with no major events, just output a single, very short sentence summarising that the market is currently stable/routine with no shocking news.\n"
+            f"HOWEVER, if there is a major breaking news, significant event, or extraordinary market shock (e.g., geopolitical conflict, sudden whale dumping, heavy price crashes/pumps, federal bank policy shocks) that directly affects Crypto, Gold, or Oil, you MUST highlight that specific breaking news and explain its impact clearly in separate bullet points.\n"
+            f"Keep it professional and concise. Do not use markdown bold inside your analysis block."
         )
         response = ai_model.generate_content(prompt)
         return response.text
     except Exception as e:
         print(f"Gemini AI Error: {e}")
-        return "ယနေ့ဈေးကွက်အတွင်း ပုံမှန်လှုပ်ခတ်မှုများရှိနေပြီး သတင်းအချက်အလက်များကို ဆက်လက်စောင့်ကြည့်ရန် လိုအပ်ပါသည်။"
+        return "ယနေ့ဈေးကွက်အတွင်း ပုံမှန်လှုပ်ခတ်မှုများရှိနေပြီး ထူးခြားသော သတင်းကြီးများ မရှိသေးပါ။"
 
 # Crypto Fear & Greed Index လှမ်းယူမည့် Function
 def get_crypto_sentiment():
@@ -125,65 +118,45 @@ def get_market_data():
 
     return prices
 
-def generate_message_text(is_viber=False):
+def generate_message_text():
     prices = get_market_data()
     fng_sentiment = get_crypto_sentiment()
     
-    # ဈေးနှုန်းဒေတာများကို စာသားအဖြစ်ပြောင်းလဲခြင်း
     prices_text = (
         f"Bitcoin: {prices['BTC']}, ETH: {prices['ETH']}, SOL: {prices['SOL']}\n"
         f"Gold: {prices['GOLD']}, WTI Oil: {prices['WTI']}, Brent Oil: {prices['BRENT']}"
     )
     
-    # သတင်းများကို Live ဆွဲယူပြီး Gemini ခိုင်းခြင်း
     raw_news_headlines = fetch_latest_news_headlines()
     ai_analysis_report = generate_ai_market_sentiment(prices_text, raw_news_headlines)
     
-    b = "*" if is_viber else "**"
     current_time = time.strftime("%I:%M %p", time.localtime(time.time() + 23400))
     
     text = (
-        f"🌟 {b}မင်္ဂလာရှိသောနေ့လေးဖြစ်ပါစေ{b} 🌟\n\n"
-        f"📊 {b}Market Update ({current_time} Live){b}\n\n"
+        f"🌟 **မင်္ဂလာရှိသောနေ့လေးဖြစ်ပါစေ** 🌟\n\n"
+        f"📊 **Market Update ({current_time} Live)**\n\n"
         f"₿ BTC: {prices['BTC']}\n"
         f"Ξ ETH: {prices['ETH']}\n"
         f"SOL: {prices['SOL']}\n"
         f"🟡 Gold (PAXG): {prices['GOLD']}\n"
         f"⛽ WTI Crude: {prices['WTI']}\n"
         f"🛢 Brent Crude: {prices['BRENT']}\n\n"
-        f"💡 {b}Crypto Sentiment Index{b}\n"
+        f"💡 **Crypto Sentiment Index**\n"
         f"📈 Fear & Greed: {fng_sentiment}\n\n"
-        f"📢 {b}AI ကမ္ဘာ့ဈေးကွက်သုံးသပ်ချက်သတင်း{b}\n"
+        f"📢 **AI ကမ္ဘာ့ဈေးကွက်သုံးသပ်ချက်သတင်း**\n"
         f"{ai_analysis_report}\n\n"
         f"⚠️ _အရောင်းအဝယ်မပြုလုပ်ပါ သတင်းအချက်အလက် မျှဝေခြင်းပါ_"
     )
     return text
 
 def send_update_to_all():
-    # ၁။ Telegram သို့ ပို့ခြင်း
-    tg_text = generate_message_text(is_viber=False)
+    # Telegram သို့သာ ပို့တော့မည် (Viber ဖြုတ်လိုက်ပါပြီ)
+    tg_text = generate_message_text()
     try:
         bot.send_message(TG_CHAT_ID, tg_text, parse_mode="Markdown")
         print("Telegram message sent successfully!")
     except Exception as e:
         print(f"Telegram Send Error: {e}")
-
-    # ၂။ Viber သို့ ပို့ခြင်း
-    viber_text = generate_message_text(is_viber=True)
-    viber_url = "https://chatapi.viber.com/pa/send_message"
-    viber_headers = {"X-Viber-Auth-Token": VIBER_TOKEN}
-    viber_payload = {
-        "chat_id": VIBER_CHAT_ID,
-        "min_api_version": 1,
-        "sender": {"name": "Market Live Report"},
-        "type": "text",
-        "text": viber_text
-    }
-    try:
-        res = requests.post(viber_url, json=viber_payload, headers=viber_headers, timeout=10)
-        print(f"Viber response: {res.status_code}")
-    except Exception as e:
-        print(f"Viber Send Error: {e}")
 
 @bot.message_handler(commands=['price'])
 def manual_price(message):

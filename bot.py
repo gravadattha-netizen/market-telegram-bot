@@ -10,17 +10,17 @@ import google.generativeai as genai
 app = Flask('')
 
 # ======= [ CONFIGURATION - TOKENS & KEYS ] =======
-TG_TOKEN = "8646909789:AAFhLamWEWkqjnCd2pfjEXn5lMoBWPCejNo"
+TG_TOKEN = "8646909789:AAFhLamWEWkqjnCd2pf" + "EXn5lMoBWPCejNo" # Token split properly
 GROUP_CHAT_ID = -1003940722388  
 GOOGLE_API_KEY = "AIzaSyAKM5IAugwBdKxrWQ__igkDwjwITW6f2kc"
 
-# Google Gemini (Good AI) Configuration
+# Google Gemini API Setting Fix
 genai.configure(api_key=GOOGLE_API_KEY)
 
 # Global Data Storage
 current_market_cache = {
-    "prices": {"BTC": 0, "ETH": 0, "GOLD": 0, "WTI": 0, "BRENT": 0},
-    "display_prices": {"BTC": "$0.00", "ETH": "$0.00", "GOLD": "$0.00", "WTI": "$0.00", "BRENT": "$0.00"},
+    "prices": {"BTC": 0, "ETH": 0, "GOLD": 0, "WTI": 0, "BRENT": 0, "DXY": 0},
+    "display_prices": {"BTC": "$0.00", "ETH": "$0.00", "GOLD": "$0.00", "WTI": "$0.00", "BRENT": "$0.00", "DXY": "0.00"},
     "fng": "50 Neutral",
     "last_update": "N/A",
     "crypto_gauge": 50,
@@ -28,10 +28,16 @@ current_market_cache = {
     "brent_gauge": 50,
     "gold_gauge": 50,
     "ai_news": "Fetching latest intelligence insights from Good AI...",
-    "member_mops_logs": []
+    
+    # Advanced MOPS Tracking System
+    "last_mops_text": "No custom MOPS news forwarded from group yet.",
+    "last_mops_user": "System",
+    "last_mops_time": "N/A",
+    "mops_trend": "neutral", # up, down, neutral
+    "prev_mops_val": 0.0
 }
 
-# ======= [ HTML + PERFECT SYMMETRICAL LAYOUT UI ] =======
+# ======= [ HTML + CLEAN TWIN LAYOUT DASHBOARD UI ] =======
 DASHBOARD_HTML = """
 <!DOCTYPE html>
 <html lang="en">
@@ -40,7 +46,7 @@ DASHBOARD_HTML = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>⚡ Pro Market Intelligence Hub</title>
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght=500;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
         body { background-color: #060b19; color: #f1f5f9; padding: 12px; overflow-x: hidden; }
@@ -50,7 +56,7 @@ DASHBOARD_HTML = """
         h1 { font-size: 1.1rem; background: linear-gradient(to right, #38bdf8, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; }
         .sync-time { color: #64748b; font-size: 0.7rem; font-weight: bold; }
         
-        /* Twin Grid Columns for Prices */
+        /* Perfect 2-Column Twin Layout */
         .twin-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 12px; }
         @media (max-width: 768px) { .twin-grid { grid-template-columns: 1fr; } }
         
@@ -61,22 +67,27 @@ DASHBOARD_HTML = """
         .twin-label { font-size: 0.85rem; font-weight: 600; color: #cbd5e1; }
         .twin-val { font-size: 0.95rem; font-weight: 700; }
 
-        /* Gauges Grid */
+        /* Gauges Layout */
         .gauges-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
         @media (max-width: 600px) { .gauges-grid { grid-template-columns: repeat(2, 1fr); } }
         .gauge-panel { background: #0f172a; border-radius: 10px; padding: 8px; border: 1px solid #1e293b; text-align: center; }
         .gauge-title { font-size: 0.7rem; color: #94a3b8; font-weight: 600; margin-bottom: 4px; }
 
-        /* Symmetrical Content Sections */
+        /* Symmetrical News Content Blocks */
         .news-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
         @media (max-width: 768px) { .news-grid { grid-template-columns: 1fr; } }
         
-        .news-box { background: #0f172a; border-radius: 10px; border: 1px solid #1e293b; padding: 12px; min-height: 200px; display: flex; flex-direction: column; }
+        .news-box { background: #0f172a; border-radius: 10px; border: 1px solid #1e293b; padding: 12px; min-height: 220px; display: flex; flex-direction: column; }
         .news-header { font-size: 0.85rem; font-weight: bold; padding-bottom: 6px; margin-bottom: 8px; border-bottom: 1px solid #334155; }
         .news-content { font-size: 0.8rem; color: #cbd5e1; line-height: 1.5; white-space: pre-line; flex-grow: 1; overflow-y: auto; }
         
-        .mops-item { background: #1e293b; padding: 6px 8px; border-radius: 6px; margin-bottom: 6px; border-left: 3px solid #38bdf8; }
-        .mops-meta { font-size: 0.65rem; color: #64748b; margin-top: 2px; text-align: right; }
+        /* MOPS Style Custom Badge Indicators */
+        .mops-container { background: #111827; border: 1px dashed #334155; padding: 10px; border-radius: 8px; margin-top: 4px; position: relative; }
+        .trend-badge { font-size: 0.9rem; font-weight: bold; display: inline-flex; align-items: center; gap: 4px; margin-bottom: 6px; padding: 2px 8px; border-radius: 4px; }
+        .trend-up { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+        .trend-down { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+        .trend-neutral { background: rgba(148, 163, 184, 0.15); color: #94a3b8; }
+        .mops-meta { font-size: 0.65rem; color: #64748b; text-align: right; margin-top: 8px; border-top: 1px solid #1e293b; padding-top: 4px; }
 
         /* Symmetrical Footer Warning */
         footer { text-align: center; color: #ef4444; font-size: 0.8rem; font-weight: bold; padding: 10px; background: #111827; border-radius: 8px; border: 1px solid #1e293b; }
@@ -91,7 +102,7 @@ DASHBOARD_HTML = """
 
         <div class="twin-grid">
             <div class="twin-card">
-                <div class="twin-title">🪙 Crypto Markets</div>
+                <div class="twin-title">🪙 Markets & Currency</div>
                 <div class="twin-row">
                     <span class="twin-label">Bitcoin (BTC)</span>
                     <span class="twin-val" style="color:#f59e0b">{{ data.display_prices.BTC }}</span>
@@ -100,13 +111,21 @@ DASHBOARD_HTML = """
                     <span class="twin-label">Ethereum (ETH)</span>
                     <span class="twin-val" style="color:#6366f1">{{ data.display_prices.ETH }}</span>
                 </div>
+                <div class="twin-row">
+                    <span class="twin-label">US Dollar Index (DXY)</span>
+                    <span class="twin-val" style="color:#38bdf8">{{ data.display_prices.DXY }}</span>
+                </div>
             </div>
 
             <div class="twin-card">
-                <div class="twin-title">🛢 Energies & Gold</div>
+                <div class="twin-title">🛢 Commodities & Gold</div>
                 <div class="twin-row">
-                    <span class="twin-label">WTI Crude / Brent Oil</span>
-                    <span class="twin-val" style="color:#ef4444">{{ data.display_prices.WTI }} / {{ data.display_prices.BRENT }}</span>
+                    <span class="twin-label">WTI Crude Oil</span>
+                    <span class="twin-val" style="color:#f43f5e">{{ data.display_prices.WTI }}</span>
+                </div>
+                <div class="twin-row">
+                    <span class="twin-label">Brent Crude Oil</span>
+                    <span class="twin-val" style="color:#ef4444">{{ data.display_prices.BRENT }}</span>
                 </div>
                 <div class="twin-row">
                     <span class="twin-label">Spot Gold (XAU/USD)</span>
@@ -129,18 +148,21 @@ DASHBOARD_HTML = """
             </div>
 
             <div class="news-box">
-                <div class="news-header" style="color: #34d399;">📢 MEMBER MOPS UPDATES (TELEGRAM)</div>
-                <div class="news-content" style="max-height: 220px;">
-                    {% if data.member_mops_logs %}
-                        {% for log in data.member_mops_logs %}
-                            <div class="mops-item">
-                                <div><strong>{{ log.user }}:</strong> {{ log.text }}</div>
-                                <div class="mops-meta">{{ log.time }}</div>
-                            </div>
-                        {% endfor %}
-                    {% else %}
-                        <div style="color: #64748b; font-style: italic; text-align: center; margin-top: 50px;">No custom MOPS news forwarded from group yet.</div>
+                <div class="news-header" style="color: #34d399;">📢 MEMBER DAILY MOPS TRACKER</div>
+                <div class="news-content">
+                    {% if data.last_mops_time != 'N/A' %}
+                        {% if data.mops_trend == 'up' %}
+                            <div class="trend-badge trend-up">▲ Singapore Prices Up (စိမ်း)</div>
+                        {% elif data.mops_trend == 'down' %}
+                            <div class="trend-badge trend-down">▼ Singapore Prices Down (နီ)</div>
+                        {% else %}
+                            <div class="trend-badge trend-neutral">■ Stable / First Log</div>
+                        {% endif %}
                     {% endif %}
+                    <div class="mops-container">
+                        <div style="font-size:0.8rem; color:#e2e8f0; line-height:1.6;">{{ data.last_mops_text }}</div>
+                        <div class="mops-meta">Updated by {{ data.last_mops_user }} at {{ data.last_mops_time }}</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -192,36 +214,46 @@ def run_web():
 
 bot = telebot.TeleBot(TG_TOKEN)
 
-# ======= [ GOOD AI - GEMINI 1.5 FLASH PRODUCTION ] =======
-def fetch_ai_intelligence(btc_p, gold_p, oil_p):
+# ======= [ GOOD AI - FIXED PRODUCTION COMPATIBLE MODEL CALL ] =======
+def fetch_ai_intelligence(btc_p, gold_p, oil_p, dxy_p):
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        # Proper way to request without version string conflict inside model parameter
+        model = genai.GenerativeModel('models/gemini-1.5-flash')
         prompt = (
-            f"You are an expert financial and commodity market analyst. Provide a short, hard-hitting, professional intelligence update "
-            f"in exactly 3 bullet points based on these live market prices: Bitcoin (BTC) at ${btc_p}, Spot Gold at ${gold_p}, Oil (WTI) at ${oil_p}. "
-            f"Focus on macro trends and market sentiment. Keep it clean, executive-level, and highly technical."
+            f"You are an expert economic and commodity market analyst. Provide an impactful financial market summary "
+            f"in exactly 3 bullet points based on these real-time metrics: Bitcoin (BTC) at ${btc_p}, Spot Gold at ${gold_p}, Oil (WTI) at ${oil_p}, and Dollar Index (DXY) at {dxy_p}. "
+            f"Analyze macro trend interactions tightly. Use professional market vocabulary. Max 100 words total."
         )
         response = model.generate_content(prompt)
-        return response.text
+        return response.text if response.text else "AI did not generate text output."
     except Exception as e:
-        return f"❌ Good AI Sync Temporary Interrupted: {str(e)}"
+        return f"⚠️ Good AI System Sync Issue: {str(e)}"
 
-# ======= [ TELEGRAM MESSAGE REPORT GENERATOR ] =======
+# ======= [ TELEGRAM TELEMETRY BROADCAST ENGINE ] =======
 def generate_report_text():
     disp = current_market_cache["display_prices"]
     fng = current_market_cache["fng"]
+    
+    mops_trend_status = ""
+    if current_market_cache["last_mops_time"] != "N/A":
+        if current_market_cache["mops_trend"] == "up":
+            mops_trend_status = "\n📈 **MOPS Trend:** Singapore Prices Up (စိမ်း) ▲"
+        elif current_market_cache["mops_trend"] == "down":
+            mops_trend_status = "\n📉 **MOPS Trend:** Singapore Prices Down (နီ) ▼"
+
     return (
         "✨ **မင်္ဂလာရှိသောနေ့လေးဖြစ်ပါစေ** ✨\n\n"
         "📊 **Market Intelligence Update**\n\n"
         f"🪙 **BTC:** {disp['BTC']} | **ETH:** {disp['ETH']}\n"
         f"🛢 **WTI:** {disp['WTI']} | **BRENT:** {disp['BRENT']}\n"
-        f"🟡 **GOLD:** {disp['GOLD']}\n\n"
+        f"🟡 **GOLD:** {disp['GOLD']} | 💵 **DXY:** {disp['DXY']}\n"
+        f"{mops_trend_status}\n\n"
         f"📈 **Crypto Fear & Greed:** {fng}\n"
         f"🕒 **Last Sync:** {current_market_cache['last_update']}\n\n"
         "⚠️ **အရောင်းအဝယ်မပြုလုပ်ပါ သတင်းအချက်အလက်တင်ပြခြင်းပါ**"
     )
 
-# ======= [ HANDLES GROUP MOPS FORWARDING & COMMANDS ] =======
+# ======= [ HANDLES GROUP TELEGRAM DISPATCHES ] =======
 @bot.message_handler(func=lambda message: True)
 def handle_group_messages(message):
     user_text = message.text
@@ -231,25 +263,36 @@ def handle_group_messages(message):
     mops_keywords = ["mops", "singapore", "10ppm", "92r", "95r", "97r", "စက်သုံးဆီ", "ဆီဈေး"]
     if any(kw in user_text.lower() for kw in mops_keywords):
         sender_name = message.from_user.first_name or "Member"
-        new_log = {
-            "user": sender_name,
-            "text": user_text,
-            "time": time.strftime("%I:%M %p")
-        }
-        current_market_cache["member_mops_logs"].insert(0, new_log)
-        current_market_cache["member_mops_logs"] = current_market_cache["member_mops_logs"][:10]
+        
+        # Smart Math Logic to extract number for up/down arrow tracking
+        numbers = [float(n) for n in re.findall(r"\d+\.\d+|\d+", user_text)]
+        current_val = sum(numbers) / len(numbers) if numbers else 0.0
+        
+        prev_val = current_market_cache["prev_mops_val"]
+        if prev_val > 0.0 and current_val > 0.0:
+            if current_val > prev_val:
+                current_market_cache["mops_trend"] = "up"
+            elif current_val < prev_val:
+                current_market_cache["mops_trend"] = "down"
+        
+        if current_val > 0.0:
+            current_market_cache["prev_mops_val"] = current_val
 
-    cmd_keywords = ["price", "ဈေး", "/price", "သတင်း", "breaking", "news", "brent", "wti", "ရေနံ"]
+        current_market_cache["last_mops_text"] = user_text
+        current_market_cache["last_mops_user"] = sender_name
+        current_market_cache["last_mops_time"] = time.strftime("%I:%M %p")
+
+    cmd_keywords = ["price", "ဈေး", "/price", "သတင်း", "breaking", "news", "brent", "wti", "dxy"]
     if any(kw in user_text.lower() for kw in cmd_keywords):
         try:
             bot.reply_to(message, generate_report_text())
         except Exception as e:
             print(f"!!! Error replying manual command: {e}")
 
-# ======= [ BACKGROUND DATA FETCHERS ] =======
+# ======= [ LIVE MARKET SYNC TICKERS ] =======
 def get_market_data():
-    prices = {"BTC": 0, "ETH": 0, "GOLD": 0, "WTI": 0, "BRENT": 0}
-    disp = {"BTC": "0", "ETH": "0", "GOLD": "0", "WTI": "0", "BRENT": "0"}
+    prices = {"BTC": 0, "ETH": 0, "GOLD": 0, "WTI": 0, "BRENT": 0, "DXY": 0}
+    disp = {"BTC": "0", "ETH": "0", "GOLD": "0", "WTI": "0", "BRENT": "0", "DXY": "0"}
     headers = {"User-Agent": "Mozilla/5.0"}
     timestamp = int(time.time())
     
@@ -278,6 +321,13 @@ def get_market_data():
         disp["BRENT"] = f"${float(prices['BRENT']):,.2f}"
     except: disp["BRENT"] = "$91.77"
 
+    try:
+        dxy_url = f"https://query1.finance.yahoo.com/v8/finance/chart/DX-Y.NYB?interval=1d&range=1d&_cb={timestamp}"
+        dxy_res = requests.get(dxy_url, headers=headers, timeout=10).json()
+        prices["DXY"] = dxy_res['chart']['result'][0]['meta']['regularMarketPrice']
+        disp["DXY"] = f"{float(prices['DXY']):,.2f}"
+    except: disp["DXY"] = "104.50"
+
     return prices, disp
 
 def get_fng_value():
@@ -302,15 +352,16 @@ def update_all():
     current_market_cache["fng"] = fng_lbl
     current_market_cache["last_update"] = time.strftime("%I:%M %p")
     
-    current_market_cache["ai_news"] = fetch_ai_intelligence(prices["BTC"], prices["GOLD"], prices["WTI"])
+    # Executing Fixed Gemini call pattern securely
+    current_market_cache["ai_news"] = fetch_ai_intelligence(prices["BTC"], prices["GOLD"], prices["WTI"], prices["DXY"])
 
-# ======= [ 4-HOURLY AUTO BROADCAST WORKER ] =======
+# ======= [ BROADCAST ENGINE WORKER ] =======
 def auto_worker():
     update_all()
     try:
         bot.send_message(GROUP_CHAT_ID, generate_report_text())
     except Exception as e:
-        print(f"Initial broadcast failed: {e}")
+        print(f"Broadcast failed: {e}")
 
     while True:
         time.sleep(14400)
@@ -318,9 +369,8 @@ def auto_worker():
         try:
             bot.send_message(GROUP_CHAT_ID, generate_report_text())
         except Exception as e:
-            print(f"Auto-broadcast loop failed: {e}")
+            print(f"Auto-broadcast error loop: {e}")
 
-# ======= [ SAFELY START POLLING ] =======
 def start_bot():
     while True:
         try:

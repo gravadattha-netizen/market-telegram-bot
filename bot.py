@@ -3,6 +3,7 @@ import requests
 import threading
 import os
 import re
+import xml.etree.ElementTree as ET
 from flask import Flask, render_template_string
 import telebot
 import google.generativeai as genai
@@ -10,34 +11,35 @@ import google.generativeai as genai
 app = Flask('')
 
 # ======= [ CONFIGURATION - TOKENS & KEYS ] =======
-TG_TOKEN = "8646909789:AAFhLamWEWkqjnCd2pf" + "EXn5lMoBWPCejNo" # Symmetrical Token Connection
+TG_TOKEN = "8646909789:AAFhLamWEWkqjnCd2pfjEXn5lMoBWPCejNo" 
 GROUP_CHAT_ID = -1003940722388  
 GOOGLE_API_KEY = "AIzaSyAKM5IAugwBdKxrWQ__igkDwjwITW6f2kc"
 
-# Google Gemini API Setting - Fixed Production Call
+# Google Gemini API Configuration
 genai.configure(api_key=GOOGLE_API_KEY)
 
-# Global Data Storage Dashboard Cache
+# Global Data Storage Database Cache
 current_market_cache = {
-    "prices": {"BTC": 0, "ETH": 0, "GOLD": 0, "WTI": 0, "BRENT": 0, "DXY": 0},
+    "prices": {"BTC": 0.0, "ETH": 0.0, "GOLD": 0.0, "WTI": 0.0, "BRENT": 0.0, "DXY": 0.0},
     "display_prices": {"BTC": "$0.00", "ETH": "$0.00", "GOLD": "$0.00", "WTI": "$0.00", "BRENT": "$0.00", "DXY": "0.00"},
+    "trends": {"BTC": "neutral", "ETH": "neutral", "GOLD": "neutral", "WTI": "neutral", "BRENT": "neutral", "DXY": "neutral"},
     "fng": "50 Neutral",
     "last_update": "N/A",
     "crypto_gauge": 50,
     "wti_gauge": 50,
     "brent_gauge": 50,
     "gold_gauge": 50,
-    "ai_news": "Fetching latest intelligence insights from Good AI...",
+    "ai_news": "စနစ်သစ်မှ ကမ္ဘာ့သတင်းများကို စုစည်း၍ AI Analysis ပြုလုပ်နေပါသည်...",
     
-    # Advanced Multi-Asset MOPS Tracking Database
-    "last_mops_text": "No custom MOPS news forwarded from group yet.",
+    # MOPS Tracker Data Storage
+    "last_mops_text": "No custom MOPS news forwarded from group yet. Waiting for member updates...",
     "last_mops_user": "System",
     "last_mops_time": "N/A",
-    "mops_trend": "neutral", # up, down, neutral
+    "mops_trend": "neutral",
     "prev_mops_val": 0.0
 }
 
-# ======= [ HTML + CLEAN TWIN LAYOUT DASHBOARD UI ] =======
+# ======= [ HTML + DYNAMIC COLOR-CODED TWIN LAYOUT ] =======
 DASHBOARD_HTML = """
 <!DOCTYPE html>
 <html lang="en">
@@ -56,7 +58,7 @@ DASHBOARD_HTML = """
         h1 { font-size: 1.1rem; background: linear-gradient(to right, #38bdf8, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; }
         .sync-time { color: #64748b; font-size: 0.7rem; font-weight: bold; }
         
-        /* Twin Grid Columns for Prices */
+        /* Twin Grid Layout */
         .twin-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 12px; }
         @media (max-width: 768px) { .twin-grid { grid-template-columns: 1fr; } }
         
@@ -65,38 +67,41 @@ DASHBOARD_HTML = """
         .twin-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #1e293b; }
         .twin-row:last-child { border-bottom: none; }
         .twin-label { font-size: 0.85rem; font-weight: 600; color: #cbd5e1; }
-        .twin-val { font-size: 0.95rem; font-weight: 700; }
+        .twin-val { font-size: 0.95rem; font-weight: 700; display: flex; align-items: center; gap: 4px; }
 
-        /* Gauges Layout Container */
+        /* Dynamic Visual Indicators colors */
+        .color-up { color: #10b981 !important; }    
+        .color-down { color: #ef4444 !important; }  
+        .color-stable { color: #e2e8f0 !important; }
+
+        /* Gauges Strip */
         .gauges-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
         @media (max-width: 600px) { .gauges-grid { grid-template-columns: repeat(2, 1fr); } }
         .gauge-panel { background: #0f172a; border-radius: 10px; padding: 8px; border: 1px solid #1e293b; text-align: center; }
         .gauge-title { font-size: 0.7rem; color: #94a3b8; font-weight: 600; margin-bottom: 4px; }
 
-        /* Symmetrical Content Dynamic Sections */
+        /* Lower Content Grid Panels */
         .news-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
         @media (max-width: 768px) { .news-grid { grid-template-columns: 1fr; } }
         
         .news-box { background: #0f172a; border-radius: 10px; border: 1px solid #1e293b; padding: 12px; min-height: 220px; display: flex; flex-direction: column; }
         .news-header { font-size: 0.85rem; font-weight: bold; padding-bottom: 6px; margin-bottom: 8px; border-bottom: 1px solid #334155; }
-        .news-content { font-size: 0.8rem; color: #cbd5e1; line-height: 1.5; white-space: pre-line; flex-grow: 1; overflow-y: auto; }
+        .news-content { font-size: 0.85rem; color: #cbd5e1; line-height: 1.6; white-space: pre-line; flex-grow: 1; overflow-y: auto; }
         
-        /* Professional Trend Indicators */
-        .mops-container { background: #111827; border: 1px dashed #334155; padding: 10px; border-radius: 8px; margin-top: 4px; position: relative; }
+        .mops-container { background: #111827; border: 1px dashed #334155; padding: 10px; border-radius: 8px; margin-top: 4px; }
         .trend-badge { font-size: 0.85rem; font-weight: bold; display: inline-flex; align-items: center; gap: 4px; margin-bottom: 6px; padding: 4px 10px; border-radius: 6px; }
         .trend-up { background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); }
         .trend-down { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
         .trend-neutral { background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.3); }
         .mops-meta { font-size: 0.65rem; color: #64748b; text-align: right; margin-top: 8px; border-top: 1px solid #1e293b; padding-top: 4px; }
 
-        /* Symmetrical Footer Warning */
         footer { text-align: center; color: #ef4444; font-size: 0.8rem; font-weight: bold; padding: 10px; background: #111827; border-radius: 8px; border: 1px solid #1e293b; }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <div><h1>KYAW GYI INTELLIGENCE HUB ⚡ <span style="font-size:0.8rem; color:#10b981;">(မင်္ဂလာရှိသောနေ့လေးဖြစ်ပါစေ)</span></h1></div>
+            <div><h1>KYAW GYI INTELLIGENCE HUB ⚡ <span style="font-size:0.85rem; color:#facc15; font-weight:bold;">(မင်္ဂလာရှိသောနေ့လေးဖြစ်ပါစေ)</span></h1></div>
             <div class="sync-time">Last Sync: {{ data.last_update }}</div>
         </header>
 
@@ -105,15 +110,21 @@ DASHBOARD_HTML = """
                 <div class="twin-title">🪙 Markets & Currency Index</div>
                 <div class="twin-row">
                     <span class="twin-label">Bitcoin (BTC)</span>
-                    <span class="twin-val" style="color:#f59e0b">{{ data.display_prices.BTC }}</span>
+                    <span class="twin-val {% if data.trends.BTC == 'up' %}color-up{% elif data.trends.BTC == 'down' %}color-down{% else %}color-stable{% endif %}">
+                        {{ data.display_prices.BTC }} {% if data.trends.BTC == 'up' %}▲{% elif data.trends.BTC == 'down' %}▼{% endif %}
+                    </span>
                 </div>
                 <div class="twin-row">
                     <span class="twin-label">Ethereum (ETH)</span>
-                    <span class="twin-val" style="color:#6366f1">{{ data.display_prices.ETH }}</span>
+                    <span class="twin-val {% if data.trends.ETH == 'up' %}color-up{% elif data.trends.ETH == 'down' %}color-down{% else %}color-stable{% endif %}">
+                        {{ data.display_prices.ETH }} {% if data.trends.ETH == 'up' %}▲{% elif data.trends.ETH == 'down' %}▼{% endif %}
+                    </span>
                 </div>
                 <div class="twin-row">
                     <span class="twin-label">US Dollar Index (DXY)</span>
-                    <span class="twin-val" style="color:#38bdf8">{{ data.display_prices.DXY }}</span>
+                    <span class="twin-val {% if data.trends.DXY == 'up' %}color-up{% elif data.trends.DXY == 'down' %}color-down{% else %}color-stable{% endif %}">
+                        {{ data.display_prices.DXY }} {% if data.trends.DXY == 'up' %}▲{% elif data.trends.DXY == 'down' %}▼{% endif %}
+                    </span>
                 </div>
             </div>
 
@@ -121,15 +132,21 @@ DASHBOARD_HTML = """
                 <div class="twin-title">🛢 Energies & Spot Gold</div>
                 <div class="twin-row">
                     <span class="twin-label">WTI Crude Oil</span>
-                    <span class="twin-val" style="color:#f43f5e">{{ data.display_prices.WTI }}</span>
+                    <span class="twin-val {% if data.trends.WTI == 'up' %}color-up{% elif data.trends.WTI == 'down' %}color-down{% else %}color-stable{% endif %}">
+                        {{ data.display_prices.WTI }} {% if data.trends.WTI == 'up' %}▲{% elif data.trends.WTI == 'down' %}▼{% endif %}
+                    </span>
                 </div>
                 <div class="twin-row">
                     <span class="twin-label">Brent Crude Oil</span>
-                    <span class="twin-val" style="color:#ef4444">{{ data.display_prices.BRENT }}</span>
+                    <span class="twin-val {% if data.trends.BRENT == 'up' %}color-up{% elif data.trends.BRENT == 'down' %}color-down{% else %}color-stable{% endif %}">
+                        {{ data.display_prices.BRENT }} {% if data.trends.BRENT == 'up' %}▲{% elif data.trends.BRENT == 'down' %}▼{% endif %}
+                    </span>
                 </div>
                 <div class="twin-row">
                     <span class="twin-label">Spot Gold (XAU/USD)</span>
-                    <span class="twin-val" style="color:#eab308">{{ data.display_prices.GOLD }}</span>
+                    <span class="twin-val {% if data.trends.GOLD == 'up' %}color-up{% elif data.trends.GOLD == 'down' %}color-down{% else %}color-stable{% endif %}">
+                        {{ data.display_prices.GOLD }} {% if data.trends.GOLD == 'up' %}▲{% elif data.trends.GOLD == 'down' %}▼{% endif %}
+                    </span>
                 </div>
             </div>
         </div>
@@ -143,7 +160,7 @@ DASHBOARD_HTML = """
 
         <div class="news-grid">
             <div class="news-box">
-                <div class="news-header" style="color: #60a5fa;">🤖 GOOD AI MARKET ANALYSIS</div>
+                <div class="news-header" style="color: #60a5fa;">🤖 GOOD AI AUTOMATED MARKET ANALYSIS (မြန်မာလိုအနှစ်ချုပ်)</div>
                 <div class="news-content">{{ data.ai_news }}</div>
             </div>
 
@@ -160,7 +177,7 @@ DASHBOARD_HTML = """
                         {% endif %}
                     {% endif %}
                     <div class="mops-container">
-                        <div style="font-size:0.8rem; color:#e2e8f0; line-height:1.6;">{{ data.last_mops_text }}</div>
+                        <div style="font-size:0.8rem; color:#cbd5e1; line-height:1.6; white-space: pre-line;">{{ data.last_mops_text }}</div>
                         <div class="mops-meta">Updated by {{ data.last_mops_user }} at {{ data.last_mops_time }}</div>
                     </div>
                 </div>
@@ -214,48 +231,76 @@ def run_web():
 
 bot = telebot.TeleBot(TG_TOKEN)
 
-# ======= [ GOOD AI - FIXED SECURE PATTERN ENGINE ] =======
-def fetch_ai_intelligence(btc_p, gold_p, oil_p, dxy_p):
+# ======= [ EXTRACTION: DYNAMIC GLOBAL NEWS WIRE FEED ] =======
+def fetch_global_wire_headlines():
+    headlines = []
+    # High quality financial news RSS providers (Investing.com & CNBC Wire)
+    rss_urls = [
+        "https://www.investing.com/rss/news_287.rss",  # Commodities/Gold/Oil news
+        "https://www.investing.com/rss/crypto.rss"     # Crypto news feed
+    ]
+    for url in rss_urls:
+        try:
+            response = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=8)
+            root = ET.fromstring(response.content)
+            for item in root.findall('.//item')[:4]: # Pull top 4 critical reports smoothly
+                title = item.find('title').text
+                desc = item.find('description').text if item.find('description') is not None else ""
+                headlines.append(f"- {title}: {desc[:110]}...")
+        except:
+            pass
+    return "\n".join(headlines) if headlines else "No raw wire text compiled this cycle."
+
+# ======= [ ADVANCED AI SYSTEM ANALYTICS ENGINE ] =======
+def generate_ai_market_intelligence(prices, wire_raw_text):
     try:
-        # Fixed explicit model paths configuration to completely bypass Render version restrictions
         model = genai.GenerativeModel('models/gemini-1.5-flash')
         prompt = (
-            f"You are an expert economic analyst. Provide a short financial market intelligence update "
-            f"in exactly 3 concise bullet points based on these live metrics: Bitcoin at ${btc_p}, Gold at ${gold_p}, Oil (WTI) at ${oil_p}, and Dollar Index (DXY) at {dxy_p}. "
-            f"Focus exclusively on dynamic macro asset trends. Keep it direct, clean, and highly professional. Max 90 words."
+            f"တရားဝင် စီးပွားရေးသတင်းထောက်တစ်ဦးကဲ့သို့ ပြုလုပ်ပါ။ အောက်ပါ ကမ္ဘာ့ဈေးနှုန်းများနှင့် သတင်းအချက်အလက်များကို အခြေခံ၍ "
+            f"မြန်မာဘာသာဖြင့် သပ်ရပ်သန့်ရှင်းသော Bullet points ၄ ခုဖြင့် အဓိကစျေးကွက်သုံးသပ်ချက်ကို အနှစ်ချုပ်ရေးသားပေးပါ။\n\n"
+            f"[လက်ရှိစျေးနှုန်းများ]:\n- Bitcoin (BTC): ${prices['BTC']}\n- Spot Gold (ရွှေ): ${prices['GOLD']}\n"
+            f"- WTI Oil (ရေနံ): ${prices['WTI']}\n- US Dollar Index (DXY): {prices['DXY']}\n\n"
+            f"[ကမ္ဘာ့သတင်းအချက်အလက်များ]:\n{wire_raw_text}\n\n"
+            f"သတ်မှတ်ချက်: စာသားများကို ဖတ်ရလွယ်ကူအောင် ရှင်းလင်းစွာ အနှစ်ချုပ်ပါ။ အပိုစာသားများမထည့်ပါနှင့်။ စုစုပေါင်း စာလုံးရေ ၁၅၀ ထက်မပိုစေရ။"
         )
         response = model.generate_content(prompt)
-        return response.text if response.text else "AI Update ready. No major anomalies detected."
+        return response.text if response.text else "စျေးကွက်သတင်းများကို ပုံမှန်အတိုင်း စောင့်ကြည့်လေ့လာနေပါသည်။"
     except Exception as e:
-        return f"⚠️ Good AI Micro System Notice: Live Intelligence Engine Refreshed. Syncing data feeds..."
+        return f"⚠️ Good AI System Feed Notice: တိုက်ရိုက်သတင်းခွဲခြမ်းစိတ်ဖြာမှု ယာယီစင့်ခ်လုပ်နေဆဲဖြစ်ပါသည်။"
 
-# ======= [ TELEGRAM TELEMETRY BROADCAST ENGINE ] =======
+# ======= [ TELEGRAM DATA REPORT ENGINE ] =======
 def generate_report_text():
     disp = current_market_cache["display_prices"]
+    trends = current_market_cache["trends"]
     fng = current_market_cache["fng"]
+    ai_report = current_market_cache["ai_news"]
     
+    def get_arrow(asset_key):
+        if trends[asset_key] == "up": return "▲ (တက်)"
+        elif trends[asset_key] == "down": return "▼ (ကျ)"
+        return "■"
+
     mops_trend_status = ""
     if current_market_cache["last_mops_time"] != "N/A":
         if current_market_cache["mops_trend"] == "up":
             mops_trend_status = "\n📈 **MOPS Trend:** Singapore Prices Up (စိမ်း) ▲"
         elif current_market_cache["mops_trend"] == "down":
             mops_trend_status = "\n📉 **MOPS Trend:** Singapore Prices Down (နီ) ▼"
-        else:
-            mops_trend_status = "\n📊 **MOPS Trend:** Singapore Prices Stable ■"
 
     return (
-        "✨ **မင်္ဂလာရှိသောနေ့လေးဖြစ်ပါစေ** ✨\n\n"
+        "✨ 🟡 **(မင်္ဂလာရှိသောနေ့လေးဖြစ်ပါစေ)** 🟡 ✨\n\n"
         "📊 **Market Intelligence Update**\n\n"
-        f"🪙 **BTC:** {disp['BTC']} | **ETH:** {disp['ETH']}\n"
-        f"🛢 **WTI:** {disp['WTI']} | **BRENT:** {disp['BRENT']}\n"
-        f"🟡 **GOLD:** {disp['GOLD']} | 💵 **DXY:** {disp['DXY']}\n"
+        f"🪙 **BTC:** {disp['BTC']} {get_arrow('BTC')} | **ETH:** {disp['ETH']} {get_arrow('ETH')}\n"
+        f"🛢 **WTI:** {disp['WTI']} {get_arrow('WTI')} | **BRENT:** {disp['BRENT']} {get_arrow('BRENT')}\n"
+        f"🟡 **GOLD:** {disp['GOLD']} {get_arrow('GOLD')} | 💵 **DXY:** {disp['DXY']} {get_arrow('DXY')}\n"
         f"{mops_trend_status}\n\n"
         f"📈 **Crypto Fear & Greed:** {fng}\n"
         f"🕒 **Last Sync:** {current_market_cache['last_update']}\n\n"
+        f"🤖 **Good AI Market Analysis (မြန်မာလို):**\n{ai_report}\n\n"
         "⚠️ **အရောင်းအဝယ်မပြုလုပ်ပါ သတင်းအချက်အလက်တင်ပြခြင်းပါ**"
     )
 
-# ======= [ SYSTEM TELEGRAM INBOUND LISTENER ] =======
+# ======= [ INBOUND TELEGRAM MESSAGES CONTROLLER ] =======
 @bot.message_handler(func=lambda message: True)
 def handle_group_messages(message):
     user_text = message.text
@@ -265,8 +310,6 @@ def handle_group_messages(message):
     mops_keywords = ["mops", "singapore", "10ppm", "92r", "95r", "97r", "စက်သုံးဆီ", "ဆီဈေး"]
     if any(kw in user_text.lower() for kw in mops_keywords):
         sender_name = message.from_user.first_name or "Member"
-        
-        # Super Accurate Regex to extract all values like 140.71, 117.57 to check market movement averages
         numbers = [float(n) for n in re.findall(r"\d+\.\d+|\d+", user_text)]
         current_val = sum(numbers) / len(numbers) if numbers else 0.0
         
@@ -276,8 +319,6 @@ def handle_group_messages(message):
                 current_market_cache["mops_trend"] = "up"
             elif current_val < prev_val:
                 current_market_cache["mops_trend"] = "down"
-            else:
-                current_market_cache["mops_trend"] = "neutral"
         
         if current_val > 0.0:
             current_market_cache["prev_mops_val"] = current_val
@@ -291,11 +332,11 @@ def handle_group_messages(message):
         try:
             bot.reply_to(message, generate_report_text())
         except Exception as e:
-            print(f"!!! Error replying manual command: {e}")
+            print(f"Command processing error: {e}")
 
-# ======= [ LIVE MARKET TICKER EXTRACTION ENGINE ] =======
+# ======= [ LIVE FINANCIAL TICKERS EXTRACTION ] =======
 def get_market_data():
-    prices = {"BTC": 0, "ETH": 0, "GOLD": 0, "WTI": 0, "BRENT": 0, "DXY": 0}
+    prices = {"BTC": 0.0, "ETH": 0.0, "GOLD": 0.0, "WTI": 0.0, "BRENT": 0.0, "DXY": 0.0}
     disp = {"BTC": "0", "ETH": "0", "GOLD": "0", "WTI": "0", "BRENT": "0", "DXY": "0"}
     headers = {"User-Agent": "Mozilla/5.0"}
     timestamp = int(time.time())
@@ -304,9 +345,9 @@ def get_market_data():
         crypto_url = f"https://min-api.cryptocompare.com/data/pricemulti?fsyms=BTC,ETH,PAXG&tsyms=USD&_cb={timestamp}"
         res = requests.get(crypto_url, headers=headers, timeout=12).json()
         if "BTC" in res:
-            prices["BTC"] = res['BTC']['USD']
-            prices["ETH"] = res['ETH']['USD']
-            prices["GOLD"] = res['PAXG']['USD']
+            prices["BTC"] = float(res['BTC']['USD'])
+            prices["ETH"] = float(res['ETH']['USD'])
+            prices["GOLD"] = float(res['PAXG']['USD'])
             for k in ["BTC", "ETH", "GOLD"]:
                 disp[k] = f"${prices[k]:,.2f}"
     except: pass
@@ -314,23 +355,23 @@ def get_market_data():
     try:
         oil_url = f"https://query1.finance.yahoo.com/v8/finance/chart/CL=F?interval=1d&range=1d&_cb={timestamp}"
         wti_res = requests.get(oil_url, headers=headers, timeout=10).json()
-        prices["WTI"] = wti_res['chart']['result'][0]['meta']['regularMarketPrice']
-        disp["WTI"] = f"${float(prices['WTI']):,.2f}"
-    except: disp["WTI"] = "$87.79"
+        prices["WTI"] = float(wti_res['chart']['result'][0]['meta']['regularMarketPrice'])
+        disp["WTI"] = f"${prices['WTI']:,.2f}"
+    except: pass
 
     try:
         oil_url2 = f"https://query1.finance.yahoo.com/v8/finance/chart/BZ=F?interval=1d&range=1d&_cb={timestamp}"
         bt_res = requests.get(oil_url2, headers=headers, timeout=10).json()
-        prices["BRENT"] = bt_res['chart']['result'][0]['meta']['regularMarketPrice']
-        disp["BRENT"] = f"${float(prices['BRENT']):,.2f}"
-    except: disp["BRENT"] = "$91.77"
+        prices["BRENT"] = float(bt_res['chart']['result'][0]['meta']['regularMarketPrice'])
+        disp["BRENT"] = f"${prices['BRENT']:,.2f}"
+    except: pass
 
     try:
         dxy_url = f"https://query1.finance.yahoo.com/v8/finance/chart/DX-Y.NYB?interval=1d&range=1d&_cb={timestamp}"
         dxy_res = requests.get(dxy_url, headers=headers, timeout=10).json()
-        prices["DXY"] = dxy_res['chart']['result'][0]['meta']['regularMarketPrice']
-        disp["DXY"] = f"{float(prices['DXY']):,.2f}"
-    except: disp["DXY"] = "104.50"
+        prices["DXY"] = float(dxy_res['chart']['result'][0]['meta']['regularMarketPrice'])
+        disp["DXY"] = f"{prices['DXY']:,.2f}"
+    except: pass
 
     return prices, disp
 
@@ -343,8 +384,16 @@ def get_fng_value():
     except: return 50, "50 Neutral"
 
 def update_all():
+    old_prices = current_market_cache["prices"].copy()
     prices, disp = get_market_data()
     fng_val, fng_lbl = get_fng_value()
+    
+    for asset in prices:
+        if old_prices[asset] > 0.0 and prices[asset] > 0.0:
+            if prices[asset] > old_prices[asset]:
+                current_market_cache["trends"][asset] = "up"
+            elif prices[asset] < old_prices[asset]:
+                current_market_cache["trends"][asset] = "down"
     
     current_market_cache["crypto_gauge"] = fng_val
     current_market_cache["wti_gauge"] = 45 if prices["WTI"] < 82 else 75
@@ -356,23 +405,25 @@ def update_all():
     current_market_cache["fng"] = fng_lbl
     current_market_cache["last_update"] = time.strftime("%I:%M %p")
     
-    current_market_cache["ai_news"] = fetch_ai_intelligence(prices["BTC"], prices["GOLD"], prices["WTI"], prices["DXY"])
+    # SYSTEM CRITICAL PIPELINE: Fetch headlines -> AI Summarization Engine
+    wire_raw_text = fetch_global_wire_headlines()
+    current_market_cache["ai_news"] = generate_ai_market_intelligence(prices, wire_raw_text)
 
-# ======= [ AUTOMATED LOOP PROCESS PRODUCTION WORKER ] =======
+# ======= [ THE 4-HOUR CRON PRODUCTION WORKER ] =======
 def auto_worker():
     update_all()
     try:
         bot.send_message(GROUP_CHAT_ID, generate_report_text())
     except Exception as e:
-        print(f"Broadcast failed: {e}")
+        print(f"Initial worker dispatch sequence fault: {e}")
 
     while True:
-        time.sleep(14400) # Auto sync every 4 hours smoothly
+        time.sleep(14400) # Wait 4-Hours precisely to minimize API token wear
         update_all()
         try:
             bot.send_message(GROUP_CHAT_ID, generate_report_text())
         except Exception as e:
-            print(f"Auto-broadcast error loop: {e}")
+            print(f"Auto-worker periodic loop fail: {e}")
 
 def start_bot():
     while True:

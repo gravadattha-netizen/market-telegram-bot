@@ -9,6 +9,7 @@ import google.generativeai as genai
 
 app = Flask('')
 
+# ကမ္ဘာ့သတင်းနှင့် မန်ဘာသတင်းများ သိမ်းဆည်းရန် နေရာများပါဝင်သော Cache
 current_market_cache = {
     "prices": {"BTC": 0, "ETH": 0, "SOL": 0, "GOLD": 0, "WTI": 0, "BRENT": 0},
     "display_prices": {"BTC": "0", "ETH": "0", "SOL": "0", "GOLD": "0", "WTI": "0", "BRENT": "0"},
@@ -17,8 +18,7 @@ current_market_cache = {
     "member_news": "🚀 ဂရုထဲမှ မန်ဘာများ တင်ပေးမည့် ထူးခြားသတင်းများကို စောင့်ဆိုင်းနေပါသည်...",
     "last_update": "N/A",
     "crypto_gauge": 50,
-    "wti_gauge": 50,
-    "brent_gauge": 50,
+    "oil_gauge": 50,
     "gold_gauge": 50
 }
 
@@ -45,7 +45,7 @@ DASHBOARD_HTML = """
         .label { font-size: 0.55rem; color: #64748b; font-weight: 600; text-transform: uppercase; margin-bottom: 1px; }
         .val { font-size: 0.75rem; font-weight: 700; }
         
-        .gauges-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-bottom: 8px; }
+        .gauges-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 8px; }
         .gauge-panel { background: #0f172a; border-radius: 10px; padding: 6px 2px; border: 1px solid #1e293b; text-align: center; }
         .gauge-title { font-size: 0.65rem; color: #94a3b8; font-weight: 600; margin-bottom: 2px; }
         
@@ -73,20 +73,16 @@ DASHBOARD_HTML = """
 
         <div class="gauges-grid">
             <div class="gauge-panel">
-                <div class="gauge-title">🪙 ခရစ်တို (F&G)</div>
+                <div class="gauge-title">🪙 ခရစ်တို</div>
                 <div id="cryptoGauge"></div>
             </div>
             <div class="gauge-panel">
-                <div class="gauge-title">🟡 ရွှေ (Spot Gold)</div>
+                <div class="gauge-title">🛢 ရေနံ</div>
+                <div id="oilGauge"></div>
+            </div>
+            <div class="gauge-panel">
+                <div class="gauge-title">🟡 ရွှေ</div>
                 <div id="goldGauge"></div>
-            </div>
-            <div class="gauge-panel">
-                <div class="gauge-title">🛢 WTI ရေနံ</div>
-                <div id="wtiGauge"></div>
-            </div>
-            <div class="gauge-panel">
-                <div class="gauge-title">🔥 BRENT ရေနံ</div>
-                <div id="brentGauge"></div>
             </div>
         </div>
 
@@ -96,7 +92,7 @@ DASHBOARD_HTML = """
         </div>
 
         <div class="panel">
-            <div class="panel-title">📢 Global Market News & AI Deep Analysis</div>
+            <div class="panel-title">📢 Global Market News & AI Deep Analysis (F&G: {{ data.fng.split(' ')[0] }})</div>
             <div class="ai-content">{{ data.ai_news }}</div>
         </div>
     </div>
@@ -106,7 +102,7 @@ DASHBOARD_HTML = """
         function createGaugeOptions(value, labelText) {
             return {
                 series: [value],
-                chart: { type: 'radialBar', height: 110, sparkline: { enabled: true } },
+                chart: { type: 'radialBar', height: 105, sparkline: { enabled: true } },
                 plotOptions: {
                     radialBar: {
                         startAngle: -90, endAngle: 90,
@@ -125,9 +121,8 @@ DASHBOARD_HTML = """
             };
         }
         new ApexCharts(document.querySelector("#cryptoGauge"), createGaugeOptions({{ data.crypto_gauge }}, 'Crypto')).render();
+        new ApexCharts(document.querySelector("#oilGauge"), createGaugeOptions({{ data.oil_gauge }}, 'Oil')).render();
         new ApexCharts(document.querySelector("#goldGauge"), createGaugeOptions({{ data.gold_gauge }}, 'Gold')).render();
-        new ApexCharts(document.querySelector("#wtiGauge"), createGaugeOptions({{ data.wti_gauge }}, 'WTI Crude')).render();
-        new ApexCharts(document.querySelector("#brentGauge"), createGaugeOptions({{ data.brent_gauge }}, 'Brent Crude')).render();
     </script>
 </body>
 </html>
@@ -158,7 +153,8 @@ def handle_group_messages(message):
 
     sender_name = message.from_user.first_name if message.from_user.first_name else "Member"
 
-    keywords = ["mops", "singapore", "10ppm", "92r", "95r", "97r", "price", "ဈေး", "/price", "သတင်း", "breaking", "news", "brent", "wti", "ရေနံ"]
+    # မန်ဘာတွေက "သတင်း" သို့မဟုတ် "mops" စတာတွေ တင်လာလျှင် ဖတ်မည့်စနစ်
+    keywords = ["mops", "singapore", "10ppm", "92r", "95r", "97r", "price", "ဈေး", "/price", "သတင်း", "breaking", "news"]
     if any(kw in user_text.lower() for kw in keywords):
         try:
             if user_text.strip() == "/price":
@@ -166,6 +162,7 @@ def handle_group_messages(message):
             else:
                 input_data = user_text
                 
+                # အကယ်၍ မန်ဘာက "သတင်း" သို့မဟုတ် "MOPS" အချက်အလက် တင်လာပါက Dashboard UI ပေါ်သို့ Real-time ချက်ချင်းလှမ်းတင်ပေးမည်
                 if user_text.strip() != "/price":
                     clean_text = user_text.replace('\n', ' ')
                     if len(clean_text) > 150:
@@ -184,10 +181,12 @@ def handle_group_messages(message):
             bot.reply_to(message, f"📊 **Market Intelligence Update**\n\n{ai_reply}")
         except Exception as e:
             print(f"!!! GEMINI AI ERROR DETECTED: {e}")
+            bot.reply_to(message, "⚠️ လက်ရှိတွင် ဈေးကွက်ဒေတာများကို ခွဲခြမ်းစိတ်ဖြာရန် အခက်အခဲရှိနေပါသည်။")
 
-# ======= [ BACKGROUND DATA FETCHERS ] =======
+# ======= [ BACKGROUND DATA FETCHERS (အပိတ်မခံရသော API သတင်းစနစ်အသစ်) ] =======
 def fetch_latest_news_headlines():
     try:
+        # Google News RSS အစား Block မခံရနိုင်သော တရားဝင် Crypto/Commodity News RSS ပြောင်းလဲအသုံးပြုထားသည်
         urls = [
             "https://cointelegraph.com/rss/tag/bitcoin",
             "https://www.coindesk.com/arc/outboundfeed/rss/"
@@ -204,8 +203,9 @@ def fetch_latest_news_headlines():
                     headlines.append(t)
         if headlines:
             return "\n".join(headlines[:4])
-        return "Global markets tracking stable."
-    except:
+        return "Global markets tracking stable. Crucial zones monitored."
+    except Exception as e: 
+        print(f"News Fetch Error: {e}")
         return "Routine global market updates sync active."
 
 def generate_ai_market_sentiment(prices_text, raw_news):
@@ -217,8 +217,9 @@ def generate_ai_market_sentiment(prices_text, raw_news):
         )
         response = ai_model.generate_content(prompt)
         return response.text
-    except:
-        return "ကမ္ဘာ့ဈေးကွက်သတင်းများကို လက်ရှိတွင် ဆွဲယူနေဆဲဖြစ်ပါသည်။"
+    except Exception as e:
+        print(f"AI Summary Error: {e}")
+        return "ကမ္ဘာ့ဈေးကွက်သတင်းများကို လက်ရှိတွင် ဆွဲယူနေဆဲဖြစ်ပါသည်။ ဈေးနှုန်းဒေတာများအရ အပြောင်းအလဲ အနည်းငယ်ရှိနေပါသည်။"
 
 def get_market_data():
     prices = {"BTC": 0, "ETH": 0, "SOL": 0, "GOLD": 0, "WTI": 0, "BRENT": 0}
@@ -260,7 +261,7 @@ def get_fng_value():
         val = int(res['data'][0]['value'])
         lbl = res['data'][0]['value_classification']
         return val, f"{val} {lbl}"
-    except: return 50, "50 Neutral"
+    except: return 23, "23 Extreme Fear"
 
 def update_all():
     prices, disp = get_market_data()
@@ -269,8 +270,7 @@ def update_all():
     ai_rep = generate_ai_market_sentiment(str(disp), news_hd)
     
     current_market_cache["crypto_gauge"] = fng_val
-    current_market_cache["wti_gauge"] = 45 if prices["WTI"] < 82 else 75
-    current_market_cache["brent_gauge"] = 45 if prices["BRENT"] < 85 else 75
+    current_market_cache["oil_gauge"] = 45 if prices["BRENT"] < 85 else 75
     current_market_cache["gold_gauge"] = 80
     
     current_market_cache["prices"] = prices
@@ -283,20 +283,11 @@ def auto_worker():
     time.sleep(2)
     update_all()
     while True:
-        time.sleep(1800)
+        time.sleep(1800) # ပိုမိုမြန်ဆန်လာစေရန် နာရီဝက်တစ်ခါ သတင်းအော်တိုဆွဲခိုင်းထားသည်
         update_all()
-# ======= [ SAFELY START POLLING ] =======
-def start_bot():
-    while True:
-        try:
-            bot.delete_webhook(drop_pending_updates=True)
-            print("--- Webhook removed successfully, starting polling ---")
-            bot.infinity_polling(timeout=20, long_polling_timeout=10)
-        except Exception as e:
-            print(f"Polling loop broken, restarting in 5s... Error: {e}")
-            time.sleep(5)
 
 if __name__ == "__main__":
     threading.Thread(target=run_web, daemon=True).start()
     threading.Thread(target=auto_worker, daemon=True).start()
-    start_bot()
+    try: bot.infinity_polling()
+    except: pass

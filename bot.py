@@ -142,7 +142,7 @@ def run_web():
     app.run(host='0.0.0.0', port=port)
 
 # ======= [ TELEGRAM & GEMINI CONFIG ] =======
-TG_TOKEN = "8646909789:AAHfAkmDGPgO1unJdxMl4EavLBDXM8V2mkc"
+TG_TOKEN = "8646909789:AAFhLamWEWkqjnCd2pfjEXn5lMoBWPCejNo"
 bot = telebot.TeleBot(TG_TOKEN)
 
 GENAI_API_KEY = "AIzaSyDE0tV" + "m05T8y6Yg8" + "fW96B6Y" + "W8C_S_G_V0"

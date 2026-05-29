@@ -5,16 +5,13 @@ import os
 import re
 from flask import Flask, render_template_string
 import telebot
-import google.generativeai as genai
 
 app = Flask('')
 
 current_market_cache = {
     "prices": {"BTC": 0, "ETH": 0, "SOL": 0, "GOLD": 0, "WTI": 0, "BRENT": 0},
-    "display_prices": {"BTC": "0", "ETH": "0", "SOL": "0", "GOLD": "0", "WTI": "0", "BRENT": "0"},
+    "display_prices": {"BTC": "$0.00", "ETH": "$0.00", "SOL": "$0.00", "GOLD": "$0.00", "WTI": "$0.00", "BRENT": "$0.00"},
     "fng": "50 Neutral",
-    "ai_news": "စနစ်ကို စတင်နေပါသည်...",
-    "member_news": "🚀 ဂရုထဲမှ မန်ဘာများ တင်ပေးမည့် ထူးခြားသတင်းများကို စောင့်ဆိုင်းနေပါသည်...",
     "last_update": "N/A",
     "crypto_gauge": 50,
     "wti_gauge": 50,
@@ -48,11 +45,6 @@ DASHBOARD_HTML = """
         .gauges-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-bottom: 8px; }
         .gauge-panel { background: #0f172a; border-radius: 10px; padding: 6px 2px; border: 1px solid #1e293b; text-align: center; }
         .gauge-title { font-size: 0.65rem; color: #94a3b8; font-weight: 600; margin-bottom: 2px; }
-        
-        .panel { background: #0f172a; border-radius: 10px; padding: 8px; border: 1px solid #1e293b; margin-bottom: 6px; }
-        .panel-title { font-size: 0.75rem; margin-bottom: 6px; color: #38bdf8; font-weight: 800; text-transform: uppercase; border-bottom: 1px dashed #1e293b; padding-bottom: 3px;}
-        .ai-content { font-size: 0.68rem; line-height: 1.6; color: #cbd5e1; white-space: pre-line; }
-        .member-content { font-size: 0.68rem; line-height: 1.6; color: #a7f3d0; white-space: pre-line; }
     </style>
 </head>
 <body>
@@ -88,16 +80,6 @@ DASHBOARD_HTML = """
                 <div class="gauge-title">🔥 BRENT ရေနံ</div>
                 <div id="brentGauge"></div>
             </div>
-        </div>
-
-        <div class="panel" style="border-color: #059669; background: #022c22;">
-            <div class="panel-title" style="color: #34d399;">🔥 Telegram Members Insights (ထူးခြားသတင်း)</div>
-            <div class="member-content">{{ data.member_news }}</div>
-        </div>
-
-        <div class="panel">
-            <div class="panel-title">📢 Global Market News & AI Deep Analysis</div>
-            <div class="ai-content">{{ data.ai_news }}</div>
         </div>
     </div>
 
@@ -141,14 +123,9 @@ def run_web():
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
 
-# ======= [ TELEGRAM & GEMINI CONFIG ] =======
+# ======= [ TELEGRAM CONFIG ] =======
 TG_TOKEN = "8646909789:AAFhLamWEWkqjnCd2pfjEXn5lMoBWPCejNo"
 bot = telebot.TeleBot(TG_TOKEN)
-
-# ကျိုင် ပေးထားသော API Key အသစ်စက်စက်အား ချက်ပြုတ်ထည့်သွင်းထားသည်
-GENAI_API_KEY = "AQ" + ".Ab8RN6K2" + "8cExgnIItpDbsidT2IPsWp" + "-RgBOZjxv6R5gPIPr1g"
-genai.configure(api_key=GENAI_API_KEY)
-ai_model = genai.GenerativeModel('gemini-1.5-flash')
 
 # ======= [ GROUP MESSAGE HANDLER ] =======
 @bot.message_handler(func=lambda message: True)
@@ -157,71 +134,29 @@ def handle_group_messages(message):
     if not user_text:
         return
 
-    sender_name = message.from_user.first_name if message.from_user.first_name else "Member"
-
     keywords = ["mops", "singapore", "10ppm", "92r", "95r", "97r", "price", "ဈေး", "/price", "သတင်း", "breaking", "news", "brent", "wti", "ရေနံ"]
     if any(kw in user_text.lower() for kw in keywords):
         try:
-            if user_text.strip() == "/price":
-                input_data = f"Current Prices:\n{str(current_market_cache['display_prices'])}\nFear & Greed: {current_market_cache['fng']}"
-            else:
-                input_data = user_text
-                
-                if user_text.strip() != "/price":
-                    clean_text = user_text.replace('\n', ' ')
-                    if len(clean_text) > 150:
-                        clean_text = clean_text[:150] + "..."
-                    current_market_cache["member_news"] = f"✍️ {sender_name}: {clean_text} ({time.strftime('%I:%M %p')})"
-
-            prompt = (
-                f"Analyze the following market/fuel data and write a response in Burmese language. "
-                f"Be informative, highly engaging, and helpful for traders. Keep it under 4-5 sentences.\n\n"
-                f"Data:\n{input_data}"
+            disp = current_market_cache["display_prices"]
+            fng = current_market_cache["fng"]
+            
+            # AI မလိုဘဲ စာသားကို တိုက်ရိုက်ပုံစံချပြီး ပြန်ပေးခြင်း
+            reply_text = (
+                "📊 **Market Intelligence Update**\n\n"
+                f"🪙 **BTC:** {disp['BTC']}\n"
+                f"🔷 **ETH:** {disp['ETH']}\n"
+                f"🟢 **SOL:** {disp['SOL']}\n"
+                f"🟡 **GOLD:** {disp['GOLD']}\n"
+                f"🛢 **WTI Crude:** {disp['WTI']}\n"
+                f"🔥 **Brent Crude:** {disp['BRENT']}\n\n"
+                f"📈 **Crypto Fear & Greed:** {fng}\n"
+                f"🕒 **Last Sync:** {current_market_cache['last_update']}"
             )
-            
-            response = ai_model.generate_content(prompt)
-            ai_reply = response.text
-            
-            bot.reply_to(message, f"📊 **Market Intelligence Update**\n\n{ai_reply}")
+            bot.reply_to(message, reply_text)
         except Exception as e:
-            print(f"!!! GEMINI AI ERROR DETECTED: {e}")
-            bot.reply_to(message, "⚠️ လက်ရှိတွင် ဈေးကွက်ဒေတာများကို ခွဲခြမ်းစိတ်ဖြာရန် အခက်အခဲရှိနေပါသည်။")
+            print(f"!!! Error replying: {e}")
 
 # ======= [ BACKGROUND DATA FETCHERS ] =======
-def fetch_latest_news_headlines():
-    try:
-        urls = [
-            "https://cointelegraph.com/rss/tag/bitcoin",
-            "https://www.coindesk.com/arc/outboundfeed/rss/"
-        ]
-        headlines = []
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-        for url in urls:
-            res = requests.get(url, headers=headers, timeout=12).text
-            titles = re.findall(r'<title><!\[CDATA\[(.*?)\]\]></title>', res)
-            if not titles:
-                titles = re.findall(r'<title>(.*?)</title>', res)
-            for t in titles[1:4]:
-                if "Cointelegraph" not in t and "CoinDesk" not in t:
-                    headlines.append(t)
-        if headlines:
-            return "\n".join(headlines[:4])
-        return "Global markets tracking stable."
-    except:
-        return "Routine global market updates sync active."
-
-def generate_ai_market_sentiment(prices_text, raw_news):
-    try:
-        prompt = (
-            f"Based on these current prices:\n{prices_text}\nAnd these global news headlines:\n{raw_news}\n"
-            f"Please translate the core impact or write an analytical summary in Burmese language for a trading dashboard. "
-            f"Make it informative, rich in content, and write around 3-4 sentences."
-        )
-        response = ai_model.generate_content(prompt)
-        return response.text
-    except:
-        return "ကမ္ဘာ့ဈေးကွက်သတင်းများကို လက်ရှိတွင် ဆွဲယူနေဆဲဖြစ်ပါသည်။"
-
 def get_market_data():
     prices = {"BTC": 0, "ETH": 0, "SOL": 0, "GOLD": 0, "WTI": 0, "BRENT": 0}
     disp = {"BTC": "0", "ETH": "0", "SOL": "0", "GOLD": "0", "WTI": "0", "BRENT": "0"}
@@ -267,8 +202,6 @@ def get_fng_value():
 def update_all():
     prices, disp = get_market_data()
     fng_val, fng_lbl = get_fng_value()
-    news_hd = fetch_latest_news_headlines()
-    ai_rep = generate_ai_market_sentiment(str(disp), news_hd)
     
     current_market_cache["crypto_gauge"] = fng_val
     current_market_cache["wti_gauge"] = 45 if prices["WTI"] < 82 else 75
@@ -278,7 +211,6 @@ def update_all():
     current_market_cache["prices"] = prices
     current_market_cache["display_prices"] = disp
     current_market_cache["fng"] = fng_lbl
-    current_market_cache["ai_news"] = ai_rep
     current_market_cache["last_update"] = time.strftime("%I:%M %p")
 
 def auto_worker():

@@ -184,7 +184,6 @@ def handle_group_messages(message):
             bot.reply_to(message, f"📊 **Market Intelligence Update**\n\n{ai_reply}")
         except Exception as e:
             print(f"!!! GEMINI AI ERROR DETECTED: {e}")
-            bot.reply_to(message, "⚠️ လက်ရှိတွင် ဈေးကွက်ဒေတာများကို ခွဲခြမ်းစိတ်ဖြာရန် အခက်အခဲရှိနေပါသည်။")
 
 # ======= [ BACKGROUND DATA FETCHERS ] =======
 def fetch_latest_news_headlines():
@@ -205,9 +204,8 @@ def fetch_latest_news_headlines():
                     headlines.append(t)
         if headlines:
             return "\n".join(headlines[:4])
-        return "Global markets tracking stable. Crucial zones monitored."
-    except Exception as e: 
-        print(f"News Fetch Error: {e}")
+        return "Global markets tracking stable."
+    except:
         return "Routine global market updates sync active."
 
 def generate_ai_market_sentiment(prices_text, raw_news):
@@ -219,9 +217,8 @@ def generate_ai_market_sentiment(prices_text, raw_news):
         )
         response = ai_model.generate_content(prompt)
         return response.text
-    except Exception as e:
-        print(f"AI Summary Error: {e}")
-        return "ကမ္ဘာ့ဈေးကွက်သတင်းများကို လက်ရှိတွင် ဆွဲယူနေဆဲဖြစ်ပါသည်။ ဈေးနှုန်းဒေတာများအရ အပြောင်းအလဲ အနည်းငယ်ရှိနေပါသည်။"
+    except:
+        return "ကမ္ဘာ့ဈေးကွက်သတင်းများကို လက်ရှိတွင် ဆွဲယူနေဆဲဖြစ်ပါသည်။"
 
 def get_market_data():
     prices = {"BTC": 0, "ETH": 0, "SOL": 0, "GOLD": 0, "WTI": 0, "BRENT": 0}
@@ -263,7 +260,7 @@ def get_fng_value():
         val = int(res['data'][0]['value'])
         lbl = res['data'][0]['value_classification']
         return val, f"{val} {lbl}"
-    except: return 23, "23 Extreme Fear"
+    except: return 50, "50 Neutral"
 
 def update_all():
     prices, disp = get_market_data()
@@ -289,14 +286,25 @@ def auto_worker():
         time.sleep(1800)
         update_all()
 
+# ======= [ SAFELY START POLLING WITH ANTI-CONFLICT LOGIC ] =======
+def start_bot():
+    # ဆာဗာအဟောင်းကို အဆက်ဖြတ်ရန် Webhook အား dummy URL သို့ ခေတ္တပြောင်းလဲပစ်ခြင်း
+    try:
+        bot.set_webhook(url="https://localhost/dummy_block_old_instance")
+        time.sleep(3)
+        bot.delete_webhook(drop_pending_updates=True)
+        print("--- Anti-Conflict: Webhook successfully reset and updates dropped ---")
+    except:
+        pass
+
+    while True:
+        try:
+            bot.infinity_polling(timeout=20, long_polling_timeout=10)
+        except Exception as e:
+            print(f"Polling loop broken, restarting in 5s... Error: {e}")
+            time.sleep(5)
+
 if __name__ == "__main__":
     threading.Thread(target=run_web, daemon=True).start()
     threading.Thread(target=auto_worker, daemon=True).start()
-    
-    # Conflict ရှင်းလင်းရန်အတွက် အဟောင်း Updates များကို ရှင်းထုတ်ပြီးမှ Poll လုပ်မည့် စနစ်
-    try:
-        bot.delete_webhook(drop_pending_updates=True)
-        time.sleep(1)
-        bot.infinity_polling(timeout=10, long_polling_timeout=5)
-    except Exception as e:
-        print(f"Polling Error: {e}")
+    start_bot()

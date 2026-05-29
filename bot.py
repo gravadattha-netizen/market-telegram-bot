@@ -19,6 +19,12 @@ current_market_cache = {
     "gold_gauge": 50
 }
 
+# =========================================================
+# ✅ ကျိုင်ရဲ့ Token အသစ် နှင့် Group ID အစစ်ကို တိုက်ရိုက် ထည့်ပေးထားပါတယ်
+TG_TOKEN = "8646909789:AAFhLamWEWkqjnCd2pfjEXn5lMoBWPCejNo"
+GROUP_CHAT_ID = -1003940722388  
+# =========================================================
+
 # ======= [ HTML + APEXCHARTS GAUGE UI ] =======
 DASHBOARD_HTML = """
 <!DOCTYPE html>
@@ -123,11 +129,25 @@ def run_web():
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
 
-# ======= [ TELEGRAM CONFIG ] =======
-TG_TOKEN = "8646909789:AAFhLamWEWkqjnCd2pfjEXn5lMoBWPCejNo"
 bot = telebot.TeleBot(TG_TOKEN)
 
-# ======= [ GROUP MESSAGE HANDLER ] =======
+# ======= [ MESSAGE GENERATOR FUNCTION ] =======
+def generate_report_text():
+    disp = current_market_cache["display_prices"]
+    fng = current_market_cache["fng"]
+    return (
+        "📊 **Market Intelligence Update**\n\n"
+        f"🪙 **BTC:** {disp['BTC']}\n"
+        f"🔷 **ETH:** {disp['ETH']}\n"
+        f"🟢 **SOL:** {disp['SOL']}\n"
+        f"🟡 **GOLD:** {disp['GOLD']}\n"
+        f"🛢 **WTI Crude:** {disp['WTI']}\n"
+        f"🔥 **Brent Crude:** {disp['BRENT']}\n\n"
+        f"📈 **Crypto Fear & Greed:** {fng}\n"
+        f"🕒 **Last Sync:** {current_market_cache['last_update']}"
+    )
+
+# ======= [ HANDLES USER MANUAL COMMANDS ] =======
 @bot.message_handler(func=lambda message: True)
 def handle_group_messages(message):
     user_text = message.text
@@ -137,24 +157,9 @@ def handle_group_messages(message):
     keywords = ["mops", "singapore", "10ppm", "92r", "95r", "97r", "price", "ဈေး", "/price", "သတင်း", "breaking", "news", "brent", "wti", "ရေနံ"]
     if any(kw in user_text.lower() for kw in keywords):
         try:
-            disp = current_market_cache["display_prices"]
-            fng = current_market_cache["fng"]
-            
-            # AI မလိုဘဲ စာသားကို တိုက်ရိုက်ပုံစံချပြီး ပြန်ပေးခြင်း
-            reply_text = (
-                "📊 **Market Intelligence Update**\n\n"
-                f"🪙 **BTC:** {disp['BTC']}\n"
-                f"🔷 **ETH:** {disp['ETH']}\n"
-                f"🟢 **SOL:** {disp['SOL']}\n"
-                f"🟡 **GOLD:** {disp['GOLD']}\n"
-                f"🛢 **WTI Crude:** {disp['WTI']}\n"
-                f"🔥 **Brent Crude:** {disp['BRENT']}\n\n"
-                f"📈 **Crypto Fear & Greed:** {fng}\n"
-                f"🕒 **Last Sync:** {current_market_cache['last_update']}"
-            )
-            bot.reply_to(message, reply_text)
+            bot.reply_to(message, generate_report_text())
         except Exception as e:
-            print(f"!!! Error replying: {e}")
+            print(f"!!! Error replying manual command: {e}")
 
 # ======= [ BACKGROUND DATA FETCHERS ] =======
 def get_market_data():
@@ -213,12 +218,26 @@ def update_all():
     current_market_cache["fng"] = fng_lbl
     current_market_cache["last_update"] = time.strftime("%I:%M %p")
 
+# ======= [ 4-HOURLY AUTO BROADCAST WORKER ] =======
 def auto_worker():
-    time.sleep(2)
+    time.sleep(5)
     update_all()
+    
+    # ဆာဗာစဖွင့်ဖွင့်ချင်း Group ထဲသို့ တစ်ချက် အချက်ပြစာ လှမ်းပို့ခြင်း
+    try:
+        bot.send_message(GROUP_CHAT_ID, "🔄 **Kyaw Gyi Auto-Analytics စနစ် အောင်မြင်စွာ ပွင့်သွားပါပြီ။**\n(ယခုမှစ၍ ၄ နာရီတစ်ခါ ပုံမှန် ဈေးနှုန်းဇယား တင်ပေးသွားမည် ဖြစ်သည်။)")
+    except Exception as e:
+        print(f"Initial broadcast failed: {e}")
+
     while True:
-        time.sleep(1800)
+        # ၄ နာရီ = ၁၄၄၀၀ စက္ကန့် စောင့်ဆိုင်းခြင်း
+        time.sleep(14400)
         update_all()
+        try:
+            bot.send_message(GROUP_CHAT_ID, generate_report_text())
+            print("--- 4-Hourly Auto Broadcast Sent Successfully ---")
+        except Exception as e:
+            print(f"Auto-broadcast loop failed to send: {e}")
 
 # ======= [ SAFELY START POLLING ] =======
 def start_bot():

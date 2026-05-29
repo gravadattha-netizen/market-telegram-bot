@@ -19,8 +19,8 @@ genai.configure(api_key=GOOGLE_API_KEY)
 
 # Global Data Storage
 current_market_cache = {
-    "prices": {"BTC": 0, "ETH": 0, "SOL": 0, "GOLD": 0, "WTI": 0, "BRENT": 0},
-    "display_prices": {"BTC": "$0.00", "ETH": "$0.00", "SOL": "$0.00", "GOLD": "$0.00", "WTI": "$0.00", "BRENT": "$0.00"},
+    "prices": {"BTC": 0, "ETH": 0, "GOLD": 0, "WTI": 0, "BRENT": 0},
+    "display_prices": {"BTC": "$0.00", "ETH": "$0.00", "GOLD": "$0.00", "WTI": "$0.00", "BRENT": "$0.00"},
     "fng": "50 Neutral",
     "last_update": "N/A",
     "crypto_gauge": 50,
@@ -28,10 +28,10 @@ current_market_cache = {
     "brent_gauge": 50,
     "gold_gauge": 50,
     "ai_news": "Fetching latest intelligence insights from Good AI...",
-    "member_mops_logs": [] # Group မန်ဘာတွေဆီက MOPS သတင်းများ သိမ်းရန်
+    "member_mops_logs": []
 }
 
-# ======= [ HTML + TWIN LAYOUT & NEWS DASHBOARD UI ] =======
+# ======= [ HTML + PERFECT SYMMETRICAL LAYOUT UI ] =======
 DASHBOARD_HTML = """
 <!DOCTYPE html>
 <html lang="en">
@@ -50,44 +50,48 @@ DASHBOARD_HTML = """
         h1 { font-size: 1.1rem; background: linear-gradient(to right, #38bdf8, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; }
         .sync-time { color: #64748b; font-size: 0.7rem; font-weight: bold; }
         
-        /* 2-Column Twin Row Layout */
-        .twin-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+        /* Twin Grid Columns for Prices */
+        .twin-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 12px; }
         @media (max-width: 768px) { .twin-grid { grid-template-columns: 1fr; } }
         
-        .twin-card { background: #0f172a; border-radius: 10px; border: 1px solid #1e293b; padding: 10px; }
-        .twin-title { font-size: 0.75rem; color: #94a3b8; font-weight: bold; text-transform: uppercase; margin-bottom: 6px; border-bottom: 1px solid #1e293b; padding-bottom: 4px; }
-        .twin-row { display: flex; justify-content: space-between; padding: 4px 0; }
-        .twin-label { font-size: 0.8rem; font-weight: 600; color: #cbd5e1; }
-        .twin-val { font-size: 0.9rem; font-weight: 700; }
+        .twin-card { background: #0f172a; border-radius: 10px; border: 1px solid #1e293b; padding: 12px; }
+        .twin-title { font-size: 0.8rem; color: #94a3b8; font-weight: bold; text-transform: uppercase; margin-bottom: 8px; border-bottom: 1px solid #1e293b; padding-bottom: 4px; }
+        .twin-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #1e293b; }
+        .twin-row:last-child { border-bottom: none; }
+        .twin-label { font-size: 0.85rem; font-weight: 600; color: #cbd5e1; }
+        .twin-val { font-size: 0.95rem; font-weight: 700; }
 
-        /* Gauges Layout */
+        /* Gauges Grid */
         .gauges-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
         @media (max-width: 600px) { .gauges-grid { grid-template-columns: repeat(2, 1fr); } }
         .gauge-panel { background: #0f172a; border-radius: 10px; padding: 8px; border: 1px solid #1e293b; text-align: center; }
         .gauge-title { font-size: 0.7rem; color: #94a3b8; font-weight: 600; margin-bottom: 4px; }
 
-        /* News Sections */
-        .news-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        /* Symmetrical Content Sections */
+        .news-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
         @media (max-width: 768px) { .news-grid { grid-template-columns: 1fr; } }
         
-        .news-box { background: #0f172a; border-radius: 10px; border: 1px solid #1e293b; padding: 12px; min-height: 180px; }
-        .news-header { font-size: 0.85rem; font-weight: bold; padding-bottom: 6px; margin-bottom: 8px; border-bottom: 1px solid #334155; display: flex; align-items: center; }
-        .news-content { font-size: 0.8rem; color: #cbd5e1; line-height: 1.5; white-space: pre-line; }
+        .news-box { background: #0f172a; border-radius: 10px; border: 1px solid #1e293b; padding: 12px; min-height: 200px; display: flex; flex-direction: column; }
+        .news-header { font-size: 0.85rem; font-weight: bold; padding-bottom: 6px; margin-bottom: 8px; border-bottom: 1px solid #334155; }
+        .news-content { font-size: 0.8rem; color: #cbd5e1; line-height: 1.5; white-space: pre-line; flex-grow: 1; overflow-y: auto; }
         
         .mops-item { background: #1e293b; padding: 6px 8px; border-radius: 6px; margin-bottom: 6px; border-left: 3px solid #38bdf8; }
         .mops-meta { font-size: 0.65rem; color: #64748b; margin-top: 2px; text-align: right; }
+
+        /* Symmetrical Footer Warning */
+        footer { text-align: center; color: #ef4444; font-size: 0.8rem; font-weight: bold; padding: 10px; background: #111827; border-radius: 8px; border: 1px solid #1e293b; }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <div><h1>KYAW GYI INTELLIGENCE HUB ⚡</h1></div>
+            <div><h1>KYAW GYI INTELLIGENCE HUB ⚡ <span style="font-size:0.8rem; color:#10b981;">(မင်္ဂလာရှိသောနေ့လေးဖြစ်ပါစေ)</span></h1></div>
             <div class="sync-time">Last Sync: {{ data.last_update }}</div>
         </header>
 
         <div class="twin-grid">
             <div class="twin-card">
-                <div class="twin-title">🪙 Crypto Pairs</div>
+                <div class="twin-title">🪙 Crypto Markets</div>
                 <div class="twin-row">
                     <span class="twin-label">Bitcoin (BTC)</span>
                     <span class="twin-val" style="color:#f59e0b">{{ data.display_prices.BTC }}</span>
@@ -99,26 +103,14 @@ DASHBOARD_HTML = """
             </div>
 
             <div class="twin-card">
-                <div class="twin-title">🛢 Energy Pairs</div>
+                <div class="twin-title">🛢 Energies & Gold</div>
                 <div class="twin-row">
-                    <span class="twin-label">WTI Crude</span>
-                    <span class="twin-val" style="color:#ef4444">{{ data.display_prices.WTI }}</span>
+                    <span class="twin-label">WTI Crude / Brent Oil</span>
+                    <span class="twin-val" style="color:#ef4444">{{ data.display_prices.WTI }} / {{ data.display_prices.BRENT }}</span>
                 </div>
                 <div class="twin-row">
-                    <span class="twin-label">Brent Crude</span>
-                    <span class="twin-val" style="color:#ff6b6b">{{ data.display_prices.BRENT }}</span>
-                </div>
-            </div>
-
-            <div class="twin-card">
-                <div class="twin-title">🟡 Safe-Haven & Alts</div>
-                <div class="twin-row">
-                    <span class="twin-label">Spot Gold</span>
+                    <span class="twin-label">Spot Gold (XAU/USD)</span>
                     <span class="twin-val" style="color:#eab308">{{ data.display_prices.GOLD }}</span>
-                </div>
-                <div class="twin-row">
-                    <span class="twin-label">Solana (SOL)</span>
-                    <span class="twin-val" style="color:#14b8a6">{{ data.display_prices.SOL }}</span>
                 </div>
             </div>
         </div>
@@ -138,7 +130,7 @@ DASHBOARD_HTML = """
 
             <div class="news-box">
                 <div class="news-header" style="color: #34d399;">📢 MEMBER MOPS UPDATES (TELEGRAM)</div>
-                <div class="news-content" style="max-height: 220px; overflow-y: auto;">
+                <div class="news-content" style="max-height: 220px;">
                     {% if data.member_mops_logs %}
                         {% for log in data.member_mops_logs %}
                             <div class="mops-item">
@@ -147,11 +139,15 @@ DASHBOARD_HTML = """
                             </div>
                         {% endfor %}
                     {% else %}
-                        <div style="color: #64748b; font-style: italic; text-align: center; margin-top: 40px;">No custom MOPS news forwarded from group yet.</div>
+                        <div style="color: #64748b; font-style: italic; text-align: center; margin-top: 50px;">No custom MOPS news forwarded from group yet.</div>
                     {% endif %}
                 </div>
             </div>
         </div>
+
+        <footer>
+            ⚠️ အရောင်းအဝယ်မပြုလုပ်ပါ သတင်းအချက်အလက်တင်ပြခြင်းပါ
+        </footer>
     </div>
 
     <script>
@@ -196,31 +192,33 @@ def run_web():
 
 bot = telebot.TeleBot(TG_TOKEN)
 
-# ======= [ GOOD AI - GEMINI NEWS GENERATOR ] =======
+# ======= [ GOOD AI - GEMINI 1.5 FLASH PRODUCTION ] =======
 def fetch_ai_intelligence(btc_p, gold_p, oil_p):
     try:
-        model = genai.GenerativeModel('gemini-pro')
+        model = genai.GenerativeModel('gemini-1.5-flash')
         prompt = (
             f"You are an expert financial and commodity market analyst. Provide a short, hard-hitting, professional intelligence update "
             f"in exactly 3 bullet points based on these live market prices: Bitcoin (BTC) at ${btc_p}, Spot Gold at ${gold_p}, Oil (WTI) at ${oil_p}. "
-            f"Focus on macro trends, sentiment, and short-term outlooks. Keep it clean, executive-level, and highly technical."
+            f"Focus on macro trends and market sentiment. Keep it clean, executive-level, and highly technical."
         )
         response = model.generate_content(prompt)
         return response.text
     except Exception as e:
         return f"❌ Good AI Sync Temporary Interrupted: {str(e)}"
 
-# ======= [ MESSAGE GENERATOR FUNCTION ] =======
+# ======= [ TELEGRAM MESSAGE REPORT GENERATOR ] =======
 def generate_report_text():
     disp = current_market_cache["display_prices"]
     fng = current_market_cache["fng"]
     return (
+        "✨ **မင်္ဂလာရှိသောနေ့လေးဖြစ်ပါစေ** ✨\n\n"
         "📊 **Market Intelligence Update**\n\n"
         f"🪙 **BTC:** {disp['BTC']} | **ETH:** {disp['ETH']}\n"
         f"🛢 **WTI:** {disp['WTI']} | **BRENT:** {disp['BRENT']}\n"
-        f"🟡 **GOLD:** {disp['GOLD']} | 🟢 **SOL:** {disp['SOL']}\n\n"
+        f"🟡 **GOLD:** {disp['GOLD']}\n\n"
         f"📈 **Crypto Fear & Greed:** {fng}\n"
-        f"🕒 **Last Sync:** {current_market_cache['last_update']}"
+        f"🕒 **Last Sync:** {current_market_cache['last_update']}\n\n"
+        "⚠️ **အရောင်းအဝယ်မပြုလုပ်ပါ သတင်းအချက်အလက်တင်ပြခြင်းပါ**"
     )
 
 # ======= [ HANDLES GROUP MOPS FORWARDING & COMMANDS ] =======
@@ -230,7 +228,6 @@ def handle_group_messages(message):
     if not user_text:
         return
 
-    # ကิစ္စ (၁) - မန်ဘာများမှ MOPS ၊ စက်သုံးဆီ သတင်းများ လာတင်လျှင် Dashboard သို့ တန်းဆွဲတင်ခြင်း
     mops_keywords = ["mops", "singapore", "10ppm", "92r", "95r", "97r", "စက်သုံးဆီ", "ဆီဈေး"]
     if any(kw in user_text.lower() for kw in mops_keywords):
         sender_name = message.from_user.first_name or "Member"
@@ -239,12 +236,9 @@ def handle_group_messages(message):
             "text": user_text,
             "time": time.strftime("%I:%M %p")
         }
-        # Dashboard Storage ထဲထည့်မယ် (နောက်ဆုံး ၁၀ ခုပဲပြမယ်)
         current_market_cache["member_mops_logs"].insert(0, new_log)
         current_market_cache["member_mops_logs"] = current_market_cache["member_mops_logs"][:10]
-        print(f"--> [DASHBOARD DETECTED MOPS]: Saved news from {sender_name}")
 
-    # ကิစ္စ (၂) - ပုံမှန် Manual ဈေးမေးခွန်းများအား ပြန်စာပို့ပေးခြင်း
     cmd_keywords = ["price", "ဈေး", "/price", "သတင်း", "breaking", "news", "brent", "wti", "ရေနံ"]
     if any(kw in user_text.lower() for kw in cmd_keywords):
         try:
@@ -254,20 +248,19 @@ def handle_group_messages(message):
 
 # ======= [ BACKGROUND DATA FETCHERS ] =======
 def get_market_data():
-    prices = {"BTC": 0, "ETH": 0, "SOL": 0, "GOLD": 0, "WTI": 0, "BRENT": 0}
-    disp = {"BTC": "0", "ETH": "0", "SOL": "0", "GOLD": "0", "WTI": "0", "BRENT": "0"}
+    prices = {"BTC": 0, "ETH": 0, "GOLD": 0, "WTI": 0, "BRENT": 0}
+    disp = {"BTC": "0", "ETH": "0", "GOLD": "0", "WTI": "0", "BRENT": "0"}
     headers = {"User-Agent": "Mozilla/5.0"}
     timestamp = int(time.time())
     
     try:
-        crypto_url = f"https://min-api.cryptocompare.com/data/pricemulti?fsyms=BTC,ETH,SOL,PAXG&tsyms=USD&_cb={timestamp}"
+        crypto_url = f"https://min-api.cryptocompare.com/data/pricemulti?fsyms=BTC,ETH,PAXG&tsyms=USD&_cb={timestamp}"
         res = requests.get(crypto_url, headers=headers, timeout=12).json()
         if "BTC" in res:
             prices["BTC"] = res['BTC']['USD']
             prices["ETH"] = res['ETH']['USD']
-            prices["SOL"] = res['SOL']['USD']
             prices["GOLD"] = res['PAXG']['USD']
-            for k in ["BTC", "ETH", "SOL", "GOLD"]:
+            for k in ["BTC", "ETH", "GOLD"]:
                 disp[k] = f"${prices[k]:,.2f}"
     except: pass
 
@@ -309,22 +302,18 @@ def update_all():
     current_market_cache["fng"] = fng_lbl
     current_market_cache["last_update"] = time.strftime("%I:%M %p")
     
-    # Gemini AI Market Analysis သတင်းကို Background မှာ လှမ်းဆွဲယူမယ်
     current_market_cache["ai_news"] = fetch_ai_intelligence(prices["BTC"], prices["GOLD"], prices["WTI"])
 
 # ======= [ 4-HOURLY AUTO BROADCAST WORKER ] =======
 def auto_worker():
     update_all()
     try:
-        welcome_msg = (
-            "🔄 **Kyaw Gyi Auto-Analytics စနစ် (Gemini AI & Twin Layout) အပြည့်အစုံ ပွင့်သွားပါပြီ။**\n\n"
-        ) + generate_report_text()
-        bot.send_message(GROUP_CHAT_ID, welcome_msg)
+        bot.send_message(GROUP_CHAT_ID, generate_report_text())
     except Exception as e:
         print(f"Initial broadcast failed: {e}")
 
     while True:
-        time.sleep(14400) # ၄ နာရီတစ်ခါ
+        time.sleep(14400)
         update_all()
         try:
             bot.send_message(GROUP_CHAT_ID, generate_report_text())

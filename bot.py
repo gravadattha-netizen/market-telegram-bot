@@ -285,20 +285,12 @@ def auto_worker():
     while True:
         time.sleep(1800)
         update_all()
-
-# ======= [ SAFELY START POLLING WITH ANTI-CONFLICT LOGIC ] =======
+# ======= [ SAFELY START POLLING ] =======
 def start_bot():
-    # ဆာဗာအဟောင်းကို အဆက်ဖြတ်ရန် Webhook အား dummy URL သို့ ခေတ္တပြောင်းလဲပစ်ခြင်း
-    try:
-        bot.set_webhook(url="https://localhost/dummy_block_old_instance")
-        time.sleep(3)
-        bot.delete_webhook(drop_pending_updates=True)
-        print("--- Anti-Conflict: Webhook successfully reset and updates dropped ---")
-    except:
-        pass
-
     while True:
         try:
+            bot.delete_webhook(drop_pending_updates=True)
+            print("--- Webhook removed successfully, starting polling ---")
             bot.infinity_polling(timeout=20, long_polling_timeout=10)
         except Exception as e:
             print(f"Polling loop broken, restarting in 5s... Error: {e}")

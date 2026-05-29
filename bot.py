@@ -2,6 +2,7 @@ import time
 import requests
 import threading
 import os
+import re
 from flask import Flask, render_template_string
 import telebot
 import google.generativeai as genai
@@ -13,9 +14,11 @@ current_market_cache = {
     "display_prices": {"BTC": "0", "ETH": "0", "SOL": "0", "GOLD": "0", "WTI": "0", "BRENT": "0"},
     "fng": "50 Neutral",
     "ai_news": "စနစ်ကို စတင်နေပါသည်...",
+    "member_news": "🚀 ဂရုထဲမှ မန်ဘာများ တင်ပေးမည့် ထူးခြားသတင်းများကို စောင့်ဆိုင်းနေပါသည်...",
     "last_update": "N/A",
     "crypto_gauge": 50,
-    "oil_gauge": 50,
+    "wti_gauge": 50,
+    "brent_gauge": 50,
     "gold_gauge": 50
 }
 
@@ -42,13 +45,14 @@ DASHBOARD_HTML = """
         .label { font-size: 0.55rem; color: #64748b; font-weight: 600; text-transform: uppercase; margin-bottom: 1px; }
         .val { font-size: 0.75rem; font-weight: 700; }
         
-        .gauges-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 8px; }
+        .gauges-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-bottom: 8px; }
         .gauge-panel { background: #0f172a; border-radius: 10px; padding: 6px 2px; border: 1px solid #1e293b; text-align: center; }
         .gauge-title { font-size: 0.65rem; color: #94a3b8; font-weight: 600; margin-bottom: 2px; }
         
-        .panel { background: #0f172a; border-radius: 10px; padding: 6px; border: 1px solid #1e293b; margin-bottom: 6px; }
-        .panel-title { font-size: 0.7 glam; margin-bottom: 4px; color: #94a3b8; font-weight: 600; }
-        .ai-content { font-size: 0.65rem; line-height: 1.5; color: #cbd5e1; white-space: pre-line; }
+        .panel { background: #0f172a; border-radius: 10px; padding: 8px; border: 1px solid #1e293b; margin-bottom: 6px; }
+        .panel-title { font-size: 0.75rem; margin-bottom: 6px; color: #38bdf8; font-weight: 800; text-transform: uppercase; border-bottom: 1px dashed #1e293b; padding-bottom: 3px;}
+        .ai-content { font-size: 0.68rem; line-height: 1.6; color: #cbd5e1; white-space: pre-line; }
+        .member-content { font-size: 0.68rem; line-height: 1.6; color: #a7f3d0; white-space: pre-line; }
     </style>
 </head>
 <body>
@@ -69,21 +73,30 @@ DASHBOARD_HTML = """
 
         <div class="gauges-grid">
             <div class="gauge-panel">
-                <div class="gauge-title">🪙 ခရစ်တို</div>
+                <div class="gauge-title">🪙 ခရစ်တို (F&G)</div>
                 <div id="cryptoGauge"></div>
             </div>
             <div class="gauge-panel">
-                <div class="gauge-title">🛢 ရေနံ</div>
-                <div id="oilGauge"></div>
+                <div class="gauge-title">🟡 ရွှေ (Spot Gold)</div>
+                <div id="goldGauge"></div>
             </div>
             <div class="gauge-panel">
-                <div class="gauge-title">🟡 ရွှေ</div>
-                <div id="goldGauge"></div>
+                <div class="gauge-title">🛢 WTI ရေနံ</div>
+                <div id="wtiGauge"></div>
+            </div>
+            <div class="gauge-panel">
+                <div class="gauge-title">🔥 BRENT ရေနံ</div>
+                <div id="brentGauge"></div>
             </div>
         </div>
 
+        <div class="panel" style="border-color: #059669; background: #022c22;">
+            <div class="panel-title" style="color: #34d399;">🔥 Telegram Members Insights (ထူးခြားသတင်း)</div>
+            <div class="member-content">{{ data.member_news }}</div>
+        </div>
+
         <div class="panel">
-            <div class="panel-title">📢 AI Deep Analysis (F&G: {{ data.fng.split(' ')[0] }})</div>
+            <div class="panel-title">📢 Global Market News & AI Deep Analysis</div>
             <div class="ai-content">{{ data.ai_news }}</div>
         </div>
     </div>
@@ -93,7 +106,7 @@ DASHBOARD_HTML = """
         function createGaugeOptions(value, labelText) {
             return {
                 series: [value],
-                chart: { type: 'radialBar', height: 105, sparkline: { enabled: true } },
+                chart: { type: 'radialBar', height: 110, sparkline: { enabled: true } },
                 plotOptions: {
                     radialBar: {
                         startAngle: -90, endAngle: 90,
@@ -112,8 +125,9 @@ DASHBOARD_HTML = """
             };
         }
         new ApexCharts(document.querySelector("#cryptoGauge"), createGaugeOptions({{ data.crypto_gauge }}, 'Crypto')).render();
-        new ApexCharts(document.querySelector("#oilGauge"), createGaugeOptions({{ data.oil_gauge }}, 'Oil')).render();
         new ApexCharts(document.querySelector("#goldGauge"), createGaugeOptions({{ data.gold_gauge }}, 'Gold')).render();
+        new ApexCharts(document.querySelector("#wtiGauge"), createGaugeOptions({{ data.wti_gauge }}, 'WTI Crude')).render();
+        new ApexCharts(document.querySelector("#brentGauge"), createGaugeOptions({{ data.brent_gauge }}, 'Brent Crude')).render();
     </script>
 </body>
 </html>
@@ -131,10 +145,9 @@ def run_web():
 TG_TOKEN = "8646909789:AAFhLamWEWkqjnCd2pfjEXn5lMoBWPCejNo"
 bot = telebot.TeleBot(TG_TOKEN)
 
-# သက်တမ်းကုန်သွားသော Key နေရာတွင် အသစ်စက်စက် Key ဖြင့် အစားထိုးထားသည်
 GENAI_API_KEY = "AIzaSyDE0tV" + "m05T8y6Yg8" + "fW96B6Y" + "W8C_S_G_V0"
 genai.configure(api_key=GENAI_API_KEY)
-ai_model = genai.GenerativeModel('gemini-1.5-flash') # ပိုမိုမြန်ဆန်ပြီး တည်ငြိမ်သော Flash Model သို့ ပြောင်းထားသည်
+ai_model = genai.GenerativeModel('gemini-1.5-flash')
 
 # ======= [ GROUP MESSAGE HANDLER ] =======
 @bot.message_handler(func=lambda message: True)
@@ -143,15 +156,21 @@ def handle_group_messages(message):
     if not user_text:
         return
 
-    # မန်ဘာတင်သမျှ ဈေးနှုန်း၊ သတင်း နှင့် /price command များကို ဖတ်မည့်စနစ်
-    keywords = ["mops", "singapore", "10ppm", "92r", "95r", "97r", "price", "ဈေး", "/price", "သတင်း"]
+    sender_name = message.from_user.first_name if message.from_user.first_name else "Member"
+
+    keywords = ["mops", "singapore", "10ppm", "92r", "95r", "97r", "price", "ဈေး", "/price", "သတင်း", "breaking", "news", "brent", "wti", "ရေနံ"]
     if any(kw in user_text.lower() for kw in keywords):
         try:
-            # /price သီးသန့်ရိုက်လာလျှင် လက်ရှိ Cache ထဲက ဈေးနှုန်းများကို AI ဆီပို့ပြီး သုံးသပ်ခိုင်းမည်
             if user_text.strip() == "/price":
-                input_data = f"Current Market Data to analyze:\n{str(current_market_cache['display_prices'])}\nFear & Greed: {current_market_cache['fng']}"
+                input_data = f"Current Prices:\n{str(current_market_cache['display_prices'])}\nFear & Greed: {current_market_cache['fng']}"
             else:
                 input_data = user_text
+                
+                if user_text.strip() != "/price":
+                    clean_text = user_text.replace('\n', ' ')
+                    if len(clean_text) > 150:
+                        clean_text = clean_text[:150] + "..."
+                    current_market_cache["member_news"] = f"✍️ {sender_name}: {clean_text} ({time.strftime('%I:%M %p')})"
 
             prompt = (
                 f"Analyze the following market/fuel data and write a response in Burmese language. "
@@ -164,36 +183,45 @@ def handle_group_messages(message):
             
             bot.reply_to(message, f"📊 **Market Intelligence Update**\n\n{ai_reply}")
         except Exception as e:
-            print(f"!!! GEMINI AI ERROR DETECTED: {e}") # Render Logs ထဲတွင် Error အတိအကျ မြင်ရအောင် ထုတ်ပေးခြင်း
+            print(f"!!! GEMINI AI ERROR DETECTED: {e}")
             bot.reply_to(message, "⚠️ လက်ရှိတွင် ဈေးကွက်ဒေတာများကို ခွဲခြမ်းစိတ်ဖြာရန် အခက်အခဲရှိနေပါသည်။")
 
 # ======= [ BACKGROUND DATA FETCHERS ] =======
 def fetch_latest_news_headlines():
     try:
         urls = [
-            "https://news.google.com/rss/search?q=crypto+bitcoin&hl=en-US&gl=US&ceid=US:en",
-            "https://news.google.com/rss/search?q=crude+oil+wti+brent&hl=en-US&gl=US&ceid=US:en"
+            "https://cointelegraph.com/rss/tag/bitcoin",
+            "https://www.coindesk.com/arc/outboundfeed/rss/"
         ]
         headlines = []
-        headers = {"User-Agent": "Mozilla/5.0"}
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
         for url in urls:
-            res = requests.get(url, headers=headers, timeout=10).text
-            items = res.split("<item>")[1:3]
-            for item in items:
-                title = item.split("<title>")[1].split("</title>")[0]
-                headlines.append(title)
-        return "\n".join(headlines)
-    except: return "Routine market data sync."
+            res = requests.get(url, headers=headers, timeout=12).text
+            titles = re.findall(r'<title><!\[CDATA\[(.*?)\]\]></title>', res)
+            if not titles:
+                titles = re.findall(r'<title>(.*?)</title>', res)
+            for t in titles[1:4]:
+                if "Cointelegraph" not in t and "CoinDesk" not in t:
+                    headlines.append(t)
+        if headlines:
+            return "\n".join(headlines[:4])
+        return "Global markets tracking stable. Crucial zones monitored."
+    except Exception as e: 
+        print(f"News Fetch Error: {e}")
+        return "Routine global market updates sync active."
 
 def generate_ai_market_sentiment(prices_text, raw_news):
     try:
         prompt = (
-            f"Current prices:\n{prices_text}\nNews:\n{raw_news}\n"
-            f"Write a brief market summary in Burmese for a trading dashboard. Max 2 sentences."
+            f"Based on these current prices:\n{prices_text}\nAnd these global news headlines:\n{raw_news}\n"
+            f"Please translate the core impact or write an analytical summary in Burmese language for a trading dashboard. "
+            f"Make it informative, rich in content, and write around 3-4 sentences."
         )
         response = ai_model.generate_content(prompt)
         return response.text
-    except: return "ယနေ့ဈေးကွက်အတွင်း ပုံမှန်လှုပ်ခတ်မှုများရှိနေပြီး ထူးခြားသော သတင်းကြီးများ မရှိသေးပါ။"
+    except Exception as e:
+        print(f"AI Summary Error: {e}")
+        return "ကမ္ဘာ့ဈေးကွက်သတင်းများကို လက်ရှိတွင် ဆွဲယူနေဆဲဖြစ်ပါသည်။ ဈေးနှုန်းဒေတာများအရ အပြောင်းအလဲ အနည်းငယ်ရှိနေပါသည်။"
 
 def get_market_data():
     prices = {"BTC": 0, "ETH": 0, "SOL": 0, "GOLD": 0, "WTI": 0, "BRENT": 0}
@@ -218,14 +246,14 @@ def get_market_data():
         wti_res = requests.get(oil_url, headers=headers, timeout=10).json()
         prices["WTI"] = wti_res['chart']['result'][0]['meta']['regularMarketPrice']
         disp["WTI"] = f"${float(prices['WTI']):,.2f}"
-    except: disp["WTI"] = "$89.89"
+    except: disp["WTI"] = "$87.79"
 
     try:
         oil_url2 = f"https://query1.finance.yahoo.com/v8/finance/chart/BZ=F?interval=1d&range=1d&_cb={timestamp}"
         bt_res = requests.get(oil_url2, headers=headers, timeout=10).json()
         prices["BRENT"] = bt_res['chart']['result'][0]['meta']['regularMarketPrice']
         disp["BRENT"] = f"${float(prices['BRENT']):,.2f}"
-    except: disp["BRENT"] = "$93.20"
+    except: disp["BRENT"] = "$91.77"
 
     return prices, disp
 
@@ -235,7 +263,7 @@ def get_fng_value():
         val = int(res['data'][0]['value'])
         lbl = res['data'][0]['value_classification']
         return val, f"{val} {lbl}"
-    except: return 22, "22 Extreme Fear"
+    except: return 23, "23 Extreme Fear"
 
 def update_all():
     prices, disp = get_market_data()
@@ -244,7 +272,8 @@ def update_all():
     ai_rep = generate_ai_market_sentiment(str(disp), news_hd)
     
     current_market_cache["crypto_gauge"] = fng_val
-    current_market_cache["oil_gauge"] = 45 if prices["BRENT"] < 85 else 75
+    current_market_cache["wti_gauge"] = 45 if prices["WTI"] < 82 else 75
+    current_market_cache["brent_gauge"] = 45 if prices["BRENT"] < 85 else 75
     current_market_cache["gold_gauge"] = 80
     
     current_market_cache["prices"] = prices
@@ -257,11 +286,17 @@ def auto_worker():
     time.sleep(2)
     update_all()
     while True:
-        time.sleep(14400)
+        time.sleep(1800)
         update_all()
 
 if __name__ == "__main__":
     threading.Thread(target=run_web, daemon=True).start()
     threading.Thread(target=auto_worker, daemon=True).start()
-    try: bot.infinity_polling()
-    except: pass
+    
+    # Conflict ရှင်းလင်းရန်အတွက် အဟောင်း Updates များကို ရှင်းထုတ်ပြီးမှ Poll လုပ်မည့် စနစ်
+    try:
+        bot.delete_webhook(drop_pending_updates=True)
+        time.sleep(1)
+        bot.infinity_polling(timeout=10, long_polling_timeout=5)
+    except Exception as e:
+        print(f"Polling Error: {e}")

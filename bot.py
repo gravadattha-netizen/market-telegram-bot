@@ -45,7 +45,6 @@ DASHBOARD_HTML = """
         .label { font-size: 0.55rem; color: #64748b; font-weight: 600; text-transform: uppercase; margin-bottom: 1px; }
         .val { font-size: 0.75rem; font-weight: 700; }
         
-        /* ဒိုင်ခွက် ၄ ခုစာအတွက် Grid ကို ၂ ခုစီ ညီအောင် ညှိထားသည် */
         .gauges-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-bottom: 8px; }
         .gauge-panel { background: #0f172a; border-radius: 10px; padding: 6px 2px; border: 1px solid #1e293b; text-align: center; }
         .gauge-title { font-size: 0.65rem; color: #94a3b8; font-weight: 600; margin-bottom: 2px; }
@@ -272,7 +271,6 @@ def update_all():
     news_hd = fetch_latest_news_headlines()
     ai_rep = generate_ai_market_sentiment(str(disp), news_hd)
     
-    # ရေနံ တစ်ခုစီအတွက် Gauge တွက်ချက်မှု သီးသန့်ခွဲထုတ်ခြင်း
     current_market_cache["crypto_gauge"] = fng_val
     current_market_cache["wti_gauge"] = 45 if prices["WTI"] < 82 else 75
     current_market_cache["brent_gauge"] = 45 if prices["BRENT"] < 85 else 75
@@ -294,5 +292,11 @@ def auto_worker():
 if __name__ == "__main__":
     threading.Thread(target=run_web, daemon=True).start()
     threading.Thread(target=auto_worker, daemon=True).start()
-    try: bot.infinity_polling()
-    except: pass
+    
+    # Conflict ရှင်းလင်းရန်အတွက် အဟောင်း Updates များကို ရှင်းထုတ်ပြီးမှ Poll လုပ်မည့် စနစ်
+    try:
+        bot.delete_webhook(drop_pending_updates=True)
+        time.sleep(1)
+        bot.infinity_polling(timeout=10, long_polling_timeout=5)
+    except Exception as e:
+        print(f"Polling Error: {e}")

@@ -8,8 +8,13 @@ from flask import Flask, render_template_string
 import telebot
 import google.generativeai as genai
 
-app = Flask('')
-
+app = Flask(__name__)
+@app.route('/update', methods=['POST'])
+def update_market_data():
+    global current_market_cache
+    data = request.json  # n8n ကပို့လာတဲ့ data
+    current_market_cache = data # cache ကို အသစ်နဲ့ အစားထိုးလိုက်တာ
+    return "OK", 200
 # ======= [ CONFIGURATION - TOKENS & KEYS ] =======
 TG_TOKEN = "8646909789:AAFhLamWEWkqjnCd2pfjEXn5lMoBWPCejNo" 
 GROUP_CHAT_ID = -1003940722388  

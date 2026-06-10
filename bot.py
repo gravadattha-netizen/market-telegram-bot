@@ -13,15 +13,17 @@ current_market_cache = {"status": "Waiting for n8n"}
 def update():
     global current_market_cache
     data = request.get_json()
-    print("Received:", data) # Log မှာကြည့်ဖို့
     if data:
         current_market_cache.update(data)
         return jsonify({"status": "success"}), 200
-    return jsonify({"status": "no data"}), 400
+    return jsonify({"status": "error"}), 400
 
 def run_flask():
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
 
 if __name__ == '__main__':
+    # Flask ကို Thread နဲ့ run
     threading.Thread(target=run_flask, daemon=True).start()
-    bot.polling(none_stop=True)
+    
+    # Bot ကို infinity_polling သုံးပြီး none_stop=False ထားပါ
+    bot.infinity_polling(none_stop=False)

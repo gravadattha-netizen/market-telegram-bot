@@ -15,6 +15,25 @@ def update_market_data():
     data = request.json  # n8n ကပို့လာတဲ့ data
     current_market_cache = data # cache ကို အသစ်နဲ့ အစားထိုးလိုက်တာ
     return "OK", 200
+    from flask import Flask, request, jsonify
+import telebot # သင့်ရဲ့ တခြား import တွေကို ဒီအောက်မှာ ဆက်ထားပါ
+
+app = Flask(__name__) # Name နေရာမှာ __name__ ကိုပဲ ထည့်ပါ
+
+# Data လက်ခံမယ့် လမ်းကြောင်း
+@app.route('/update', methods=['POST'])
+def update_market_data():
+    global current_market_cache
+    # n8n က ပို့လာတဲ့ data ကို ဖမ်းယူခြင်း
+    data = request.get_json() 
+    current_market_cache = data
+    return jsonify({"status": "success"}), 200
+
+# သင်လက်ရှိသုံးနေတဲ့ bot logic တွေကို ဒီအောက်မှာ ဆက်ရေးပါ
+# ... 
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
 # ======= [ CONFIGURATION - TOKENS & KEYS ] =======
 TG_TOKEN = "8646909789:AAFhLamWEWkqjnCd2pfjEXn5lMoBWPCejNo" 
 GROUP_CHAT_ID = -1003940722388  

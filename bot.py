@@ -355,20 +355,3 @@ import threading
 
 app = Flask(__name__)
 
-# n8n ကနေပို့တဲ့ data ကို လက်ခံမယ့် route
-@app.route('/update-n8n-data', methods=['POST'])
-def update_n8n_data():
-    data = request.json
-    # n8n ကပို့လာတဲ့ data ကို current_market_cache ထဲ ထည့်လိုက်ပါ
-    if 'report_text' in data:
-        current_market_cache['report_text'] = data['report_text']
-        update_dashboard_data() # Dashboard ကို အော်တိုတင်ပေးတဲ့ function
-        return jsonify({"status": "success"}), 200
-    return jsonify({"status": "error"}), 400
-
-# Flask ကို Thread တစ်ခုနဲ့ run ထားပါ (Bot loop နဲ့ မတိုက်အောင်)
-def run_flask():
-    app.run(port=5001)
-
-threading.Thread(target=run_flask).start()
-

@@ -350,3 +350,24 @@ if __name__ == "__main__":
     while True:
         try: bot.polling(none_stop=True)
         except: time.sleep(5)
+
+# app.py (Render ပေါ်တင်မယ့် script)
+from flask import Flask, request, jsonify
+import json
+
+app = Flask(__name__)
+
+# n8n ကနေ webhook လှမ်းခေါ်မယ့် endpoint
+@app.route('/n8n-webhook', methods=['POST'])
+def handle_n8n_report():
+    data = request.json
+    
+    # ဒီနေရာမှာ n8n က ပို့လိုက်တဲ့ Market data သို့မဟုတ် MOPS data ကို
+    # dashboard database ထဲကို အပ်ဒိတ်လုပ်တဲ့ logic ရေးပါ
+    # ဥပမာ - save_to_db(data)
+    
+    print(f"Data Received from n8n: {data}")
+    return jsonify({"message": "Dashboard updated successfully"}), 200
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)

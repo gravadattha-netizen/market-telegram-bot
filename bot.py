@@ -83,14 +83,13 @@ def run_bot():
             time.sleep(5)
 
 if __name__ == "__main__":
-    # စဖွင့်ဖွင့်ချင်း သတင်းတစ်ပုဒ် အလိုအလျောက် တန်းပို့ခိုင်းထားခြင်း
+    # ၁။ စဖွင့်ဖွင့်ချင်း သတင်းတစ်ပုဒ် အလိုအလျောက် တန်းပို့ခိုင်းခြင်း
     threading.Thread(target=send_market_report).start()
     
-    # Flask Web Server ပတ်ခြင်း
+    # ၂။ Flask Web Server ကို Thread နဲ့ သီးသန့်ပတ်ခြင်း
     threading.Thread(target=run_flask).start()
     
-    # Telegram Bot Polling ပတ်ခြင်း
-    run_bot()
+    # ၃။ Telegram Bot Polling ကို အောက်ဆုံးမှာမှ တိုက်ရိုက်ပတ်ခြင်း (ဒီနေရာမှာပဲ ထားရပါမယ်)
 def run_bot():
     # လက်ရှိ ငြိနေတဲ့ Webhook သို့မဟုတ် အဟောင်းတွေကို လုံးဝ အပြတ်ရှင်းချပစ်ခြင်း
     try:
@@ -106,3 +105,4 @@ def run_bot():
         except Exception as e:
             print(f"Bot polling error: {e}")
             time.sleep(5)
+run_bot()

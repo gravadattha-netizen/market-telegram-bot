@@ -7,8 +7,8 @@ import telebot
 import google.generativeai as genai
 
 # ==================== [ CONFIGURATION ] ====================
-TG_TOKEN = "8646909789:AAEx-xO3fvYIqxtnv_WObgiJLOCjReqA33o"
-GROUP_CHAT_ID = "-1003940722388"
+TG_TOKEN = "8646909789:AAEgaU6Qi4MIaSx9EG-ZA0i_03JcpXjpjR0"
+GROUP_CHAT_ID ="-1003940722388"
 
 # API Key ကို လုံခြုံအောင် Render ရဲ့ Environment သို့မဟုတ် ကုဒ်ထဲက တိုက်ရိုက်ဖတ်မည်
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "AIzaSyAKM5IAugwBdKxrWQ__igkDwjwiTW6f2kc")

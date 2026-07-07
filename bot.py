@@ -10,7 +10,6 @@ import google.generativeai as genai
 # Render ရဲ့ Environment Variable ထဲကနေ Token ကို ဘေးကင်းစွာ လှမ်းဖတ်ခြင်း
 TG_TOKEN = os.environ.get("TG_TOKEN", "")
 GROUP_CHAT_ID = "-1003940722388"
-
 # API Key ကို Render Environment ထဲက ဖတ်မည်
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 # Gemini Setup

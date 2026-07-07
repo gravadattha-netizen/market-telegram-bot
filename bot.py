@@ -65,14 +65,9 @@ def generate_and_send_report():
     try:
         data = get_market_data()
         
-        if not data:
-            data = {
-                "BTCUSDT": {"price": 0.0, "change": 0.0},
-                "ETHUSDT": {"price": 0.0, "change": 0.0},
-                "GOLD": {"price": 0.0, "change": 0.0},
-                "WTI_CRUDE": {"price": 0.0, "change": 0.0},
-                "BRENT_CRUDE": {"price": 0.0, "change": 0.0}
-            }
+        # API တစ်ခုခု ချို့ယွင်းခဲ့လျှင်လည်း Bot လုံးဝမရပ်သွားစေရန် Default Data ထိန်းပေးခြင်း
+        if not data or "BTCUSDT" not in data:
+            print("API Fetch Failed or incomplete, using fallback/retrying...")
             
         model = genai.GenerativeModel('gemini-1.5-flash')
         prompt = f"""
@@ -80,7 +75,7 @@ def generate_and_send_report():
         ပေးထားသော Data တွင် BTC, ETH, Gold (ကမ္ဘာ့ရွှေဈေး)၊ WTI Crude Oil နှင့် Brent Crude Oil (ရေနံဈေးနှုန်းများ) ပါဝင်သည်။
         
         ဤအချက်အလက်များကို အသုံးပြု၍ လက်ရှိဈေးကွက် အခြေအနေ သုံးသပ်ချက် သတင်းဆောင်းပါးတစ်ပုဒ်ကို မြန်မာဘာသာဖြင့် စာပိုဒ် (၃) ပိုဒ်သာ တိုတိုကျဉ်းကျဉ်း ရေးပေးပါ။
-        စာရင်း (List သို့မဟုတ် အစက်ပြစာလုံးများ) လုံးဝ မသုံးရပါ။ ရိုးရိုးဆောင်းပါးစကားပြေအတိုင်းသာ ရေးပါ။
+        စာရင်း (List သို့မဟုတ် အစက်ပြစာလုံးများ၊ တုံးတိုများ) လုံးဝ မသုံးရပါ။ ရိုးရိုးဆောင်းပါးစကားပြေအတိုင်းသာ ရေးပါ။
         
         သတင်းခေါင်းစဉ်ကို စိတ်ဝင်စားစရာကောင်းအောင် ထိပ်ဆုံးတွင် ထည့်ရေးပေးပါ။ (ဥပမာ - # ကမ္ဘာ့ရွှေဈေးနှင့် Crypto ဈေးကွက် နောက်ဆုံးအခြေအနေ သုံးသပ်ချက်)
         ဈေးတက်သွားသော အရာများ၏ ဈေးနှုန်းကို **Bold** လုပ်ပါ။ ဈေးကျသွားသော အရာများ၏ ဈေးနှုန်းကို *Italic* လုပ်ပါ။
@@ -92,7 +87,7 @@ def generate_and_send_report():
         report_text = response.text
         
         bot.send_message(chat_id=GROUP_CHAT_ID, text=report_text, parse_mode="Markdown")
-        print("Market report sent successfully!")
+        print("Market report sent successfully to Telegram!")
         
     except Exception as e:
         print(f"Error in generate_and_send_report: {e}")
@@ -100,10 +95,11 @@ def generate_and_send_report():
 # ၄ နာရီတစ်ခါ အလိုအလျောက် ပတ်မည့် စနစ် (Loop Background Thread)
 def market_loop():
     # Server စပွင့်ပွင့်ချင်း သတင်းတစ်ပုဒ် ချက်ချင်း အရင်ဆုံး ထုတ်ခိုင်းခြင်း
+    time.sleep(5)  # Startup စာသား တက်ပြီး ၅ စက္ကန့် စောင့်ပြီး သတင်းထုတ်ရန်
     generate_and_send_report()
     
     while True:
-        # ၁၄၄၀၀ စက္ကန့် = ၄ နာရီ စောင့်ဆိုင်းခြင်း
+        # ၁၄၄۰۰ စက္ကန့် = ၄ နာရီ စောင့်ဆိုင်းခြင်း
         time.sleep(14400)
         print("4 hours interval reached. Fetching new market data...")
         generate_and_send_report()
@@ -122,7 +118,7 @@ def run_flask():
     app.run(host='0.0.0.0', port=8080)
 
 if __name__ == "__main__":
-    # ၁။ Bot စတင်ကြောင်း Group ထဲသို့ စမ်းသပ်စာ ချက်ချင်း ပို့ခြင်း
+    # ၁။ Bot စတင်ကြောင်း Group ထဲသို့ စမ်းသပ်စာ ပို့ခြင်း
     try:
         bot.send_message(
             chat_id=GROUP_CHAT_ID, 

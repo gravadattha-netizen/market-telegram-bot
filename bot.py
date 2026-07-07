@@ -60,12 +60,12 @@ def get_market_data():
             
     return prices
 
-# Gemini ဖြင့် သောင်းပြောင်းထွေလာ မပါဘဲ ဈေးနှုန်းသတင်းသုံးသပ်ချက် သီးသန့် ရေးမည့် Function
+# Gemini ဖြင့် သတင်းဆောင်းပါးရေးပြီး Telegram သို့ လှမ်းပို့မည့် Function
 def generate_and_send_report():
     try:
+        print("Starting to fetch data and generate Gemini report...")
         data = get_market_data()
         
-        # အကယ်၍ Data တစ်ခုခု လိုအပ်ပါက Default ဖြည့်ရန်
         if not data:
             print("No market data fetched. Aborting report.")
             return
@@ -75,8 +75,8 @@ def generate_and_send_report():
         သင်သည် ကမ္ဘာ့စီးပွားရေးနှင့် ရင်းနှီးမြှုပ်နှံမှု ဈေးကွက်ကို ကျွမ်းကျင်သော ထိပ်တန်းသတင်းထောက်တစ်ယောက် ဖြစ်သည်။ 
         ပေးထားသော Data တွင် BTC, ETH, Gold (ကမ္ဘာ့ရွှေဈေး)၊ WTI Crude Oil နှင့် Brent Crude Oil (ရေနံဈေးနှုန်းများ) ပါဝင်သည်။
         
-        ဤအချက်အလက်များကို အသုံးပြု၍ လက်ရှိဈေးကွက် အခြေအနေနှင့် ဈေးနှုန်းသတင်းသုံးသပ်ချက် သီးသန့်ကို မြန်မာဘာသာဖြင့် စာပိုဒ် (၃) ပိုဒ်သာ တိုတိုကျဉ်းကျဉ်း ရေးပေးပါ။
-        ရုပ်ပုံများ၊ အီမိုဂျီများ၊ စာရင်း (List သို့မဟုတ် အစက်ပြစာလုံးများ၊ တုံးတိုများ) လုံးဝ မသုံးရပါ။ ရိုးရိုးဆောင်းပါးစကားပြေအတိုင်းသာ ဇာတ်တိုက်ရေးပါ။
+        ဤအချက်အလက်များကို အသုံးပြု၍ လက်ရှိဈေးကွက် အခြေအနေ သုံးသပ်ချက် သတင်းဆောင်းပါးတစ်ပုဒ်ကို မြန်မာဘာသာဖြင့် စာပိုဒ် (၃) ပိုဒ်သာ တိုတိုကျဉ်းကျဉ်း ရေးပေးပါ။
+        စာရင်း (List သို့မဟုတ် အစက်ပြစာလုံးများ၊ တုံးတိုများ) လုံးဝ မသုံးရပါ။ ရိုးရိုးဆောင်းပါးစကားပြေအတိုင်းသာ ဇာတ်တိုက် ရေးပါ။
         
         သတင်းခေါင်းစဉ်ကို စိတ်ဝင်စားစရာကောင်းအောင် ထိပ်ဆုံးတွင် ထည့်ရေးပေးပါ။ (ဥပမာ - # ကမ္ဘာ့ရွှေဈေးနှင့် Crypto ဈေးကွက် နောက်ဆုံးအခြေအနေ သုံးသပ်ချက်)
         ဈေးတက်သွားသော အရာများ၏ ဈေးနှုန်းကို **Bold** လုပ်ပါ။ ဈေးကျသွားသော အရာများ၏ ဈေးနှုန်းကို *Italic* လုပ်ပါ။
@@ -88,20 +88,20 @@ def generate_and_send_report():
         report_text = response.text
         
         bot.send_message(chat_id=GROUP_CHAT_ID, text=report_text, parse_mode="Markdown")
-        print("Market report sent successfully!")
+        print("Market report successfully sent to Telegram Group!")
         
     except Exception as e:
         print(f"Error in generate_and_send_report: {e}")
 
-# ၄ နာရီတစ်ခါ အလိုအလျောက် ပတ်မည့် စနစ်
+# ၄ နာရီတစ်ခါ Background တွင် အလိုအလျောက် ပတ်မည့် Loop စနစ်
 def market_loop():
-    # စပွင့်ပွင့်ချင်း Data မကျသေးခင် ခေတ္တစောင့်ပြီးမှ ပထမဆုံး Report ပို့ရန်
-    time.sleep(10)
+    # Server တက်တက်ချင်း ၅ စက္ကန့်အတွင်း ပထမဆုံး Report ချက်ချင်း ထုတ်ခိုင်းခြင်း
+    time.sleep(5)
     generate_and_send_report()
     
     while True:
         time.sleep(14400) # ၄ နာရီ ခြားခြင်း
-        print("4 hours interval reached. Fetching data...")
+        print("4 hours interval reached. Triggering automatic report...")
         generate_and_send_report()
 
 # Telegram /check_market Command စမ်းသပ်ရန်
@@ -112,26 +112,35 @@ def handle_check_market(message):
 
 @app.route('/')
 def home():
-    return "Market Bot with 4-Hour Loop Running Live!"
+    return "Market Telegram Bot with Fixed Boot-Sequence is Live!"
 
 def run_flask():
     app.run(host='0.0.0.0', port=8080)
 
 if __name__ == "__main__":
-    # Flask Web Server စတင်ခြင်း
-    threading.Thread(target=run_flask).start()
-
-    # ၄ နာရီတစ်ခါ ပတ်မည့် လုပ်ငန်းစဉ်ကို Background တွင် စတင်ခြင်း
-    threading.Thread(target=market_loop).start()
-
-    # Conflict မဖြစ်အောင် ကျန်ခဲ့တဲ့ Webhook တွေနဲ့ စာဟောင်းတွေကို အပြတ်ရှင်းခြင်း
+    # ၁။ Conflict မဖြစ်စေရန် နေရာဟောင်းများကို အရင် ရှင်းထုတ်ခြင်း
     try:
         bot.delete_webhook(drop_pending_updates=True)
         time.sleep(2)
     except Exception as e:
         print(f"Error clearing webhook: {e}")
-        
-    # Telegram Bot Polling စတင်ခြင်း
+
+    # ၂။ Flask Web Server ကို Thread သီးသန့်ဖြင့် စတင်ခြင်း
+    threading.Thread(target=run_flask, daemon=True).start()
+
+    # ၃။ ၄ နာရီတစ်ခါ ပတ်မည့် Loop ကို Thread သီးသန့်ဖြင့် သီးခြားခွဲပတ်ခြင်း (ဒီနေရာမှာ ပိတ်မနေတော့ပါ)
+    threading.Thread(target=market_loop, daemon=True).start()
+
+    # ၄။ Bot စတင်ကြောင်း Group ထဲသို့ တစ်ခါတည်း အသိပေးချက် ပို့ခြင်း
+    try:
+        bot.send_message(
+            chat_id=GROUP_CHAT_ID, 
+            text="🚀 Market Analysis Bot စတင် အလုပ်လုပ်ပါပြီဗျာ... (၅ စက္ကန့်အတွင်း Gemini မှ ပထမဆုံးဈေးကွက်သတင်းကို တင်ပေးပါမည်)"
+        )
+    except Exception as e:
+        print(f"Startup message error: {e}")
+
+    # ၅။ Telegram Bot Polling (အောက်ဆုံးတွင် ထားပြီး အမြဲနားထောင်ခိုင်းခြင်း)
     while True:
         try:
             bot.polling(none_stop=True, timeout=60)

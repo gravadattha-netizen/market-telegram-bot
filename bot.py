@@ -91,3 +91,18 @@ if __name__ == "__main__":
     
     # Telegram Bot Polling ပတ်ခြင်း
     run_bot()
+def run_bot():
+    # လက်ရှိ ငြိနေတဲ့ Webhook သို့မဟုတ် အဟောင်းတွေကို လုံးဝ အပြတ်ရှင်းချပစ်ခြင်း
+    try:
+        bot.remove_webhook()
+        time.sleep(1)
+    except:
+        pass
+
+    # Bot စပတ်ခြင်း
+    while True:
+        try:
+            bot.polling(none_stop=True, timeout=60, long_polling_timeout=60)
+        except Exception as e:
+            print(f"Bot polling error: {e}")
+            time.sleep(5)

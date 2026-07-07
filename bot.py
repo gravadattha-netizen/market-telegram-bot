@@ -82,26 +82,33 @@ def run_bot():
             time.sleep(5)
 
 if __name__ == "__main__":
-    # ၁။ စဖွင့်ဖွင့်ချင်း သတင်းတစ်ပုဒ် အလိုအလျောက် တန်းပို့ခိုင်းခြင်း
-    threading.Thread(target=send_market_report).start()
-    
-    # ၂။ Flask Web Server ကို Thread နဲ့ သီးသန့်ပတ်ခြင်း
-    threading.Thread(target=run_flask).start()
-    
-    # ၃။ Telegram Bot Polling ကို အောက်ဆုံးမှာမှ တိုက်ရိုက်ပတ်ခြင်း (ဒီနေရာမှာပဲ ထားရပါမယ်)
-def run_bot():
-    # လက်ရှိ ငြိနေတဲ့ Webhook သို့မဟုတ် အဟောင်းတွေကို လုံးဝ အပြတ်ရှင်းချပစ်ခြင်း
+    # ၁။ Server စပွင့်တာနဲ့ Group ထဲကို ချက်ချင်း စမ်းသပ်စာ လှမ်းပို့ခိုင်းခြင်း
     try:
-        bot.remove_webhook()
-        time.sleep(1)
-    except:
-        pass
+        print("Sending initial startup message...")
+        bot.send_message(chat_id=GROUP_CHAT_ID, text="🚀 Market Analysis Bot စတင် အလုပ်လုပ်ပါပြီဗျာ... ခေတ္တစောင့်ဆိုင်းပေးပါ။ Gemini မှ အချက်အလက်များ လှမ်းယူနေပါသည်။")
+    except Exception as e:
+        print(f"Startup message error: {e}")
 
-    # Bot စပတ်ခြင်း
-    while True:
+    # ၂။ သတင်းတစ်ပုဒ် အလိုအလျောက် ပတ်ပို့ပေးမည့် Thread ကို စတင်ခြင်း
+    threading.Thread(target=send_market_report).start()
+
+    # ၃။ Flask Web Server ပတ်ခြင်း
+    threading.Thread(target=run_flask).start()
+
+    # ၄။ Telegram Bot Polling (Webhook ဖြုတ်ပြီး အသစ်ပြန်စခြင်း)
+    def run_bot():
         try:
-            bot.polling(none_stop=True, timeout=60, long_polling_timeout=60)
-        except Exception as e:
-            print(f"Bot polling error: {e}")
-            time.sleep(5)
-run_bot()
+            bot.remove_webhook()
+            time.sleep(1)
+        except:
+            pass
+        
+        while True:
+            try:
+                bot.polling(none_stop=True, timeout=60, long_polling_timeout=60)
+            except Exception as e:
+                print(f"Bot polling error: {e}")
+                time.sleep(5)
+
+    run_bot()
+

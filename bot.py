@@ -7,7 +7,7 @@ import telebot
 import google.generativeai as genai
 
 # ==================== [ CONFIGURATION ] ====================
-TG_TOKEN = "8646909789:AAFhLamWEWkqjnCd2pfjEXn5lMoBWPCejNo"
+TG_TOKEN = "8646909789:AAEx-xO3fvYIqxtnv_WObgiJLOCjReqA33o"
 GROUP_CHAT_ID = "-1003940722388"
 
 # API Key ကို လုံခြုံအောင် Render ရဲ့ Environment သို့မဟုတ် ကုဒ်ထဲက တိုက်ရိုက်ဖတ်မည်

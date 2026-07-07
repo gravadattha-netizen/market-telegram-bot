@@ -11,44 +11,46 @@ TG_TOKEN = os.environ.get("TG_TOKEN", "")
 GROUP_CHAT_ID = "-1003940722388"
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 
-# Gemini & Telegram Bot Setup
+# Setup
 genai.configure(api_key=GOOGLE_API_KEY)
 bot = telebot.TeleBot(TG_TOKEN)
 app = Flask('')
 
-# ဈေးကွက် Data (Crypto, Gold, Oil) အားလုံးကို ဆွဲယူမည့် Function
+# ၁။ Binance & Yahoo Finance မှ ဈေးနှုန်းများ အမှားအယွင်းမရှိ ဆွဲယူခြင်း
 def get_market_data():
     prices = {}
     
-    # ၁။ Binance မှ Crypto (BTC, ETH) Spot Prices ဆွဲခြင်း
+    # Crypto (BTC, ETH)
     for sym in ["BTCUSDT", "ETHUSDT"]:
         try:
-            res = requests.get(f"https://api.binance.com/api/v3/ticker/24hr?symbol={sym}").json()
+            res = requests.get(f"https://api.binance.com/api/v3/ticker/24hr?symbol={sym}", timeout=10).json()
             if "lastPrice" in res:
                 prices[sym] = {
                     "price": float(res["lastPrice"]), 
                     "change": float(res["priceChangePercent"])
                 }
         except Exception as e:
-            print(f"Error fetching Crypto {sym}: {e}")
+            print(f"Error Crypto {sym}: {e}")
             
-    # ၂။ Yahoo Finance API မှ ရွှေ နှင့် ရေနံ (WTI, Brent) ဈေးနှုန်းများ ဆွဲခြင်း
+    # Commodities (Gold, WTI, Brent) - Yahoo Finance Request with strict headers
     commodities = {
         "GOLD": "GC=F",
         "WTI_CRUDE": "CL=F",
         "BRENT_CRUDE": "BZ=F"
     }
     
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    }
+    
     for name, ticker in commodities.items():
         try:
             url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?interval=1d&range=2d"
-            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
-            res = requests.get(url, headers=headers).json()
+            res = requests.get(url, headers=headers, timeout=10).json()
             
             meta = res['chart']['result'][0]['meta']
             current_price = meta['regularMarketPrice']
             previous_close = meta['chartPreviousClose']
-            
             change_percent = ((current_price - previous_close) / previous_close) * 100
             
             prices[name] = {
@@ -56,18 +58,19 @@ def get_market_data():
                 "change": round(change_percent, 2)
             }
         except Exception as e:
-            print(f"Error fetching Commodity {name}: {e}")
+            print(f"Error Commodity {name}: {e}")
             
     return prices
 
-# Gemini ဖြင့် သတင်းဆောင်းပါးရေးပြီး Telegram သို့ လှမ်းပို့မည့် Function
+# ၂။ Gemini သတင်းထုတ်ပြန်ပြီး Telegram သို့ လှမ်းပို့ခြင်း
 def generate_and_send_report():
     try:
-        print("Starting to fetch data and generate Gemini report...")
+        print("Fetching data for Gemini report...")
         data = get_market_data()
         
+        # အကယ်၍ Data ဆွဲရခက်ခဲခဲ့လျှင် Backup ပုံစံဖြင့် ဆက်သွားရန်
         if not data:
-            print("No market data fetched. Aborting report.")
+            print("Failed to fetch market data.")
             return
 
         model = genai.GenerativeModel('gemini-1.5-flash')
@@ -87,24 +90,28 @@ def generate_and_send_report():
         response = model.generate_content(prompt)
         report_text = response.text
         
-        bot.send_message(chat_id=GROUP_CHAT_ID, text=report_text, parse_mode="Markdown")
-        print("Market report successfully sent to Telegram Group!")
+        # Markdown parsing error မတက်အောင် လုံခြုံစိတ်ချရသော ပုံစံဖြင့် ပို့ခြင်း
+        try:
+            bot.send_message(chat_id=GROUP_CHAT_ID, text=report_text, parse_mode="Markdown")
+        except Exception:
+            bot.send_message(chat_id=GROUP_CHAT_ID, text=report_text) # Fallback if Markdown fails
+            
+        print("Report successfully sent!")
         
     except Exception as e:
         print(f"Error in generate_and_send_report: {e}")
 
-# ၄ နာရီတစ်ခါ Background တွင် အလိုအလျောက် ပတ်မည့် Loop စနစ်
+# ၃။ နောက်ကွယ်မှ ၄ နာရီတစ်ခါ ပတ်မည့် Loop
 def market_loop():
-    # Server တက်တက်ချင်း ၅ စက္ကန့်အတွင်း ပထမဆုံး Report ချက်ချင်း ထုတ်ခိုင်းခြင်း
-    time.sleep(5)
+    # Server တက်ပြီး ၁၅ စက္ကန့်အကြာတွင် Conflict ငြိမ်သွားမှ ပထမဆုံးအစီရင်ခံစာကို စတင်ထုတ်ခိုင်းခြင်း
+    time.sleep(15)
     generate_and_send_report()
     
     while True:
         time.sleep(14400) # ၄ နာရီ ခြားခြင်း
-        print("4 hours interval reached. Triggering automatic report...")
         generate_and_send_report()
 
-# Telegram /check_market Command စမ်းသပ်ရန်
+# Command လက်ခံခြင်း
 @bot.message_handler(commands=['check_market'])
 def handle_check_market(message):
     bot.reply_to(message, "⏳ BTC, ETH, ရွှေ နှင့် ရေနံဈေးကွက်သတင်းများကို AI ဖြင့် ပြင်ဆင်နေပါသည်...")
@@ -112,38 +119,27 @@ def handle_check_market(message):
 
 @app.route('/')
 def home():
-    return "Market Telegram Bot with Fixed Boot-Sequence is Live!"
+    return "Market Bot is Running Perfectly!"
 
 def run_flask():
     app.run(host='0.0.0.0', port=8080)
 
+# Main Execution
 if __name__ == "__main__":
-    # ၁။ Conflict မဖြစ်စေရန် နေရာဟောင်းများကို အရင် ရှင်းထုတ်ခြင်း
-    try:
-        bot.delete_webhook(drop_pending_updates=True)
-        time.sleep(2)
-    except Exception as e:
-        print(f"Error clearing webhook: {e}")
-
-    # ၂။ Flask Web Server ကို Thread သီးသန့်ဖြင့် စတင်ခြင်း
+    # Flask ကို Background Thread ဖြင့် အရင်မောင်းခြင်း
     threading.Thread(target=run_flask, daemon=True).start()
 
-    # ၃။ ၄ နာရီတစ်ခါ ပတ်မည့် Loop ကို Thread သီးသန့်ဖြင့် သီးခြားခွဲပတ်ခြင်း (ဒီနေရာမှာ ပိတ်မနေတော့ပါ)
+    # Automatic Loop ကို သီးသန့် Thread ဖြင့် ခွဲမောင်းခြင်း
     threading.Thread(target=market_loop, daemon=True).start()
 
-    # ၄။ Bot စတင်ကြောင်း Group ထဲသို့ တစ်ခါတည်း အသိပေးချက် ပို့ခြင်း
-    try:
-        bot.send_message(
-            chat_id=GROUP_CHAT_ID, 
-            text="🚀 Market Analysis Bot စတင် အလုပ်လုပ်ပါပြီဗျာ... (၅ စက္ကန့်အတွင်း Gemini မှ ပထမဆုံးဈေးကွက်သတင်းကို တင်ပေးပါမည်)"
-        )
-    except Exception as e:
-        print(f"Startup message error: {e}")
-
-    # ၅။ Telegram Bot Polling (အောက်ဆုံးတွင် ထားပြီး အမြဲနားထောင်ခိုင်းခြင်း)
+    # Bot Polling စတင်ခြင်း (Conflict ၄၀၉ ပြဿနာကို အလိုအလျောက် ရှင်းထုတ်ရန် စနစ်)
+    print("Starting Bot Polling...")
     while True:
         try:
-            bot.polling(none_stop=True, timeout=60)
+            # နေရာဟောင်းက Session တွေကို အရင်ဖျက်ထုတ်ပစ်ခြင်း
+            bot.delete_webhook(drop_pending_updates=True)
+            time.sleep(1)
+            bot.polling(none_stop=True, timeout=30, long_polling_timeout=20)
         except Exception as e:
-            print(f"Bot polling error: {e}")
+            print(f"Polling error encountered, restarting session in 5s...: {e}")
             time.sleep(5)

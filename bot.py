@@ -54,7 +54,7 @@ DASHBOARD_HTML = """
     </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡ Kyaw Gyi Energy Intelligence Hub</title>
+    <title>⚡ Market pro Energy Intelligence Hub</title>
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght=500;700;800&display=swap" rel="stylesheet">
     <style>

@@ -10,7 +10,7 @@ import google.generativeai as genai
 app = Flask('')
 
 # ======= [ CONFIGURATION - TOKENS & KEYS ] =======
-TG_TOKEN = "8646909789:AAH-VPsKDMsV4CpJson4GNKd2ux2B0-gVg0"
+TG_TOKEN = "8646909789:AAFhLamWEWkqjnCd2pfjEXn5lMoBWPCejNo" 
 GROUP_CHAT_ID = -1003940722388  
 GOOGLE_API_KEY = "AIzaSyAKM5IAugwBdKxrWQ__igkDwjwITW6f2kc"
 
@@ -19,23 +19,19 @@ genai.configure(api_key=GOOGLE_API_KEY)
 # =========================================================
 # ✍️ [ ADMIN INPUT ] - ဆီလုပ်ငန်းသတင်းများ ရေးထည့်ရန်နေရာ
 # =========================================================
-ADMIN_MESSAGE = """လက်ရှိ အခြေအနေများနှင့် သက်ရောက်နိုင်သည့် အချက်များ
-Global Demand (ကမ္ဘာ့ရေနံ ဝယ်လိုအား): အဓိက စီးပွားရေးနိုင်ငံကြီးများ (အထူးသဖြင့် အမေရိကန်နှင့် တရုတ်) ၏ စီးပွားရေး တိုးတက်မှုနှုန်းနှေးကွေးခြင်း သို့မဟုတ် စက်မှုလုပ်ငန်းထုတ်လုပ်မှု ကျဆင်းခြင်းများသည် ရေနံဝယ်လိုအားကို လျော့ကျစေနိုင်သဖြင့် ဈေးနှုန်းကို ဖိအားပေးနိုင်ပါသည်။
-Geopolitical Tensions (နိုင်ငံရေး တင်းမာမှုများ): အရှေ့အလယ်ပိုင်းဒေသနှင့် အခြားရေနံထွက်ရှိရာ ဒေသများရှိ ပဋိပක්ෂများ၊ ပိတ်ဆို့မှုများကြောင့် ထောက်ပံ့ရေးကွင်းဆက် (Supply Chain) အနှောင့်အယှက်ဖြစ်ပါက ရေနံဈေးနှုန်း ရုတ်တရက် ခုန်တက်နိုင်သည့် အခြေအနေရှိပါသည်။
-OPEC+ ၏ မူဝါဒများ: OPEC+ အဖွဲ့ဝင်နိုင်ငံများ၏ ရေနံထုတ်လုပ်မှု လျှော့ချခြင်း သို့မဟုတ် တိုးမြှင့်ခြင်းဆိုင်ရာ ဆုံးဖြတ်ချက်များသည် ဈေးကွက်ကို တိုက်ရိုက်ထိန်းကျောင်းနေသောကြောင့် ၎င်းတို့၏ ကြေညာချက်များကို စောင့်ကြည့်ရန် လိုအပ်ပါသည်။
-အမေရိကန် ဒေါ်လာတန်ဖိုး: ရေနံကို ဒေါ်လာဖြင့် အရောင်းအဝယ်ပြုလုပ်သည့်အတွက် ဒေါ်လာဈေးတက်ပါက ရေနံဈေးနှုန်းသည် အခြားငွေကြေးသုံးစွဲသူများအတွက် ဈေးကြီးသွားသဖြင့် ဝယ်လိုအား ကျဆင်းပြီး ဈေးနှုန်းကျလေ့ရှိပါသည်။
-သုံးသပ်ချက်
-လာမည့်အပါတ်တွင် ရေနံဈေးသည် ကြီးမားသည့် ပြောင်းလဲမှုများထက် အနည်းငယ် အတက်အကျရှိနိုင်သည့် (Range-bound) အနေအထားတွင် ရှိနေနိုင်ပါသည်။ အကယ်၍ အရှေ့အလယ်ပိုင်းတွင် ပဋိပက္ခ အသစ်တစ်စုံတစ်ရာ ပေါ်ပေါက်လာခြင်း သို့မဟုတ် OPEC+ ဘက်မှ ထုတ်လုပ်မှုနှင့် ပတ်သက်၍ ထူးခြားသည့် သတင်းများ ထွက်ပေါ်လာခြင်းမရှိပါက လက်ရှိဈေးနှုန်းဝန်းကျင်တွင်သာ အတက်အကျ အနည်းငယ်ဖြင့် ရပ်တည်နိုင်ပါသည်။
-မှတ်ချက်။ ရေနံဈေးကွက်သည် နိုင်ငံရေးသတင်းများနှင့် စီးပွားရေးအချက်အလက်များပေါ်တွင် အလွန်မြန်ဆန်စွာ ပြောင်းလဲတတ်သဖြင့် ရင်းနှီးမြှုပ်နှံမှုအတွက် အသုံးပြုရန် ရည်ရွယ်ပါက နောက်ဆုံးရ သတင်းများကို နေ့စဉ် ထပ်မံစစ်ဆေးရန် အကြံပြုလိုပါသည်။
-# Global Data Cache (ရေနံဈေး သီးသန့်ပဲ ကျန်ပါတော့တယ်)
+ADMIN_MESSAGE = """● QR စနစ်ဖြင့်တစ်နိုင်ငံလုံး ဆိုင်ပေါင်း ၁၇၃၀ တပ်ဆင်ရောင်းချ ပေးနေပါသည်
+● မန်ဘာများအားလုံး မိမိတို့ ပိုင်ဆိုင်မှုကို သေჩာ စီမံခန့်ခွဲကြပါရန်။"""
+# =========================================================
+
+# Global Data Cache
 current_market_cache = {
-    "prices": {"WTI": 75.50, "BRENT": 79.50},
-    "display_prices": {"WTI": "$75.50", "BRENT": "$79.50"},
+    "prices": {"WTI": 71.70, "BRENT": 76.00},
+    "display_prices": {"WTI": "$71.70", "BRENT": "$76.00"},
     "trends": {"WTI": "up", "BRENT": "up"},
     "last_update": "N/A",
-    "wti_gauge": 65,
-    "brent_gauge": 68,
-    "ai_news": "● ကမ္ဘာ့ရေနံဈေးကွက်သတင်းများကို AI ဖြင့် သေချာစွာ အနှစ်ချုပ် သုံးသပ်နေပါသည်...",
+    "wti_gauge": 50,
+    "brent_gauge": 55,
+    "ai_news": "● ကမ္ဘာ့ရေနံဈေးကွက်သတင်းများကို AI ဖြင့် သေჩာစွာ အနှစ်ချုပ် သုံးသပ်နေပါသည်...",
     "last_mops_text": "No custom MOPS news forwarded from group yet. Waiting for member updates...",
     "admin_intel": ADMIN_MESSAGE 
 }
@@ -54,7 +50,7 @@ DASHBOARD_HTML = """
     </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡ Market pro Energy Intelligence Hub</title>
+    <title>⚡ Kyaw Gyi Energy Intelligence Hub</title>
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght=500;700;800&display=swap" rel="stylesheet">
     <style>
@@ -187,11 +183,10 @@ def home():
 
 bot = telebot.TeleBot(TG_TOKEN)
 
-# ======= [ FIXED GEMINI NEWS PIPELINE - OIL ONLY ] =======
+# ======= [ FIXED GEMINI NEWS PIPELINE ] =======
 def update_ai_analysis(prices):
     try:
         headlines = []
-        # CNBC ရေနံနှင့် စွမ်းအင်သီးသန့် RSS Feed သို့ ပြောင်းလဲထားပါသည်
         rss_url = "https://www.cnbc.com/id/19832390/device/rss/rss.html"
         res = requests.get(rss_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=8)
         root = ET.fromstring(res.content)
@@ -219,35 +214,46 @@ def update_ai_analysis(prices):
         print(f"Gemini error: {e}")
     return "● ကမ္ဘာ့ရေနံဈေးကွက်သည် လက်ရှိအခြေအနေတွင် ပုံမှန်အတိုင်း ဆက်လက်ရွေ့လျားနေပါသည်။\n● နိုင်ငံတကာစွမ်းအင်လိုအပ်ချက်နှင့် ထုတ်လုပ်မှုအခြေအနေများကို စောင့်ကြည့်ရပါမည်။"
 
-# ======= [ DATA FEEDS ENGINE - REAL-TIME PUBLIC OIL FEED ] =======
-def get_market_data():
+# ======= [ YAHOO FINANCE FIXED LIVE FEED ] =======
+def fetch_yahoo_oil_price(symbol):
+    """ Yahoo Finance API URL စာလုံးပေါင်း အမှန်ပြင်ဆင်ထားသည် """
+    try:
+        # finance.yahoo.com တိုက်ရိုက် endpoint သို့ ပြောင်းလဲထားပါသည်
+        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1m&range=1d"
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+        response = requests.get(url, headers=headers, timeout=7).json()
+        meta = response['chart']['result'][0]['meta']
+        price = meta['regularMarketPrice']
+        prev_close = meta['previousClose']
+        trend = "up" if price >= prev_close else "down"
+        return round(float(price), 2), trend
+    except Exception as e:
+        print(f"Yahoo Finance fetch error for {symbol}: {e}")
+        return None, None
+
+def update_dashboard_data():
     prices = current_market_cache["prices"].copy()
     disp = current_market_cache["display_prices"].copy()
     trends = current_market_cache["trends"].copy()
     
-    # ရေနံ live ဒေတာများကို သန့်ရှင်းသော open gateway မှ ဆွဲယူခြင်း (သို့မဟုတ် လုံခြုံစိတ်ချရသော တက်ကြွဈေးနှုန်း ဖန်တီးခြင်း)
-    try:
-        oil_res = requests.get("https://api.coingecko.com/api/v3/simple/price?ids=wti-crude-oil-etf", timeout=5).json()
-        if "wti-crude-oil-etf" in oil_res:
-            prices["WTI"] = float(oil_res["wti-crude-oil-etf"]["usd"])
-    except:
-        pass
-
-    # စျေးကွက်လှုပ်ရှားမှုကို အရှင်ဖြစ်စေရန် စနစ်မှ သေချာတွက်ချက်ပေးခြင်း
-    # အစ်ကို့လုပ်ငန်းအတွက် အမြဲတမ်း Live ဆီဈေးနှုန်းအဖြစ် ပေါ်လွင်စေရန်ဖြစ်ပါသည်
-    import random
-    variation = random.choice([-0.15, 0.05, 0.10, -0.05, 0.22])
-    prices["WTI"] = round(prices["WTI"] + variation, 2)
-    prices["BRENT"] = round(prices["WTI"] + 4.00, 2)
+    # 1. WTI Crude Oil Live (CL=F)
+    wti_p, wti_t = fetch_yahoo_oil_price("CL=F")
+    if wti_p:
+        prices["WTI"] = wti_p
+        trends["WTI"] = wti_t
+        
+    # 2. Brent Crude Oil Live (BZ=F)
+    brent_p, brent_t = fetch_yahoo_oil_price("BZ=F")
+    if brent_p:
+        prices["BRENT"] = brent_p
+        trends["BRENT"] = brent_t
+    else:
+        prices["BRENT"] = round(prices["WTI"] + 4.10, 2)
+        trends["BRENT"] = trends["WTI"]
 
     for key in ["WTI", "BRENT"]:
         disp[key] = f"${prices[key]:,.2f}"
-        trends[key] = "up" if variation >= 0 else "down"
 
-    return prices, disp, trends
-
-def update_dashboard_data():
-    prices, disp, trends = get_market_data()
     current_market_cache["prices"] = prices
     current_market_cache["display_prices"] = disp
     current_market_cache["trends"] = trends
@@ -256,7 +262,7 @@ def update_dashboard_data():
     current_market_cache["wti_gauge"] = 65 if trends["WTI"] == "up" else 45
     current_market_cache["brent_gauge"] = 68 if trends["BRENT"] == "up" else 48
 
-# ======= [ TELEGRAM CONSTRUCT REPORT - OIL ONLY ] =======
+# ======= [ TELEGRAM CONSTRUCT REPORT ] =======
 def generate_telegram_msg():
     d = current_market_cache["display_prices"]
     t = current_market_cache["trends"]
@@ -284,10 +290,11 @@ def handle_msg(m):
 def dashboard_loop():
     while True:
         update_dashboard_data()
-        time.sleep(900)
+        time.sleep(300)
 
 def telegram_loop():
     while True:
+        update_dashboard_data()
         current_market_cache["ai_news"] = update_ai_analysis(current_market_cache["prices"])
         try: 
             bot.send_message(GROUP_CHAT_ID, generate_telegram_msg())

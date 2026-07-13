@@ -45,7 +45,7 @@ current_market_cache = {
     "last_update": "N/A",
     "wti_gauge": 50,
     "brent_gauge": 55,
-    "ai_news": "● ကမ္ဘာ့ရေနံဈေးကွက်သတင်းများကို AI ဖြင့် သေჩာစွာ အနှစ်ချုပ် သုံးသပ်နေပါသည်...",
+    "ai_news": "● ကမ္ဘာ့ရေနံဈေးကွက်သတင်းများကို AI ဖြင့်အနှစ်ချုပ် သုံးသပ်နေပါသည်...",
     "last_mops_text": "No custom MOPS news forwarded from group yet. Waiting for member updates...",
     "admin_intel": ADMIN_MESSAGE 
 }

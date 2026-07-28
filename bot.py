@@ -15,7 +15,6 @@ GROUP_CHAT_ID = -1003940722388
 GOOGLE_API_KEY = "AIzaSyAKM5IAugwBdKxrWQ__igkDwjwITW6f2kc"
 
 genai.configure(api_key=GOOGLE_API_KEY)
-
 # =========================================================
 # ✍️ [ ADMIN INPUT ] - ဆီလုပ်ငန်းသတင်းများ ရေးထည့်ရန်နေရာ
 # =========================================================

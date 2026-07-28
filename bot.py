@@ -46,7 +46,7 @@ BusinessToday Malaysia
 Vietnam.vn
 + 1
 သို့သော်လည်း ပထဝီနိုင်ငံရေး အခြေအနေမှာ အချိန်မရွေး ပြောင်းလဲနိုင်သေးသဖြင့် ဈေးကွက်အတွင်း ဆက်လက်စောင့်ကြည့်နေဆဲ ဖြစ်ပါသည်။  
-BusinessToday Malaysia
+BusinessToday Malaysi
 # =========================================================
 
 # Global Data Cache

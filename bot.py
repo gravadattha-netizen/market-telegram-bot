@@ -328,7 +328,7 @@ def telegram_loop():
             bot.send_message(GROUP_CHAT_ID, generate_telegram_msg())
         except Exception as e: 
             print(f"Telegram broadcast error: {e}")
-        time.sleep(14400)
+        time.sleep(28800)
 
 if __name__ == "__main__":
     try: bot.delete_webhook(drop_pending_updates=True)

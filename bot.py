@@ -10,12 +10,13 @@ import google.generativeai as genai
 app = Flask('')
 
 # ======= [ CONFIGURATION - TOKENS & KEYS ] =======
-TG_TOKEN = "8646909789:AAEUqvptmEOvKj59UySIMuPS7yuu-CXn-Oo"
+TG_TOKEN = "8646909789:AAFhLamWEWkqjnCd2pfjEXn5lMoBWPCejNo" 
 GROUP_CHAT_ID = -1003940722388  
 GOOGLE_API_KEY = "AIzaSyAKM5IAugwBdKxrWQ__igkDwjwITW6f2kc"
 
 genai.configure(api_key=GOOGLE_API_KEY)
-# ========================================================
+
+# =========================================================
 # ✍️ [ ADMIN INPUT ] - ဆီလုပ်ငန်းသတင်းများ ရေးထည့်ရန်နေရာ
 # =========================================================
 ADMIN_MESSAGE = """လက်ရှိ ၂၀၂၆ ခုနှစ်၊ ဇူလိုင်လနှောင်းပိုင်း ကမ္ဘာ့ရေနံဈေးကွက်နှင့် ဈေးနှုန်းအခြေအနေများကို အကျဉ်းချုပ် သုံးသပ်တင်ပြရ သော်-  
@@ -47,6 +48,7 @@ IEA – International Energy Agency
 ယခုလက်ရှိ အနေအထားတွင် ရေနံဈေးနှုန်းများသည် ပြီးခဲ့သည့် လများက တွေ့ကြုံခဲ့ရသော အစွန်းရောက်ဈေးနှုန်း အတက်အကျကြီးများမှ အနည်းငယ် ငြိမ်ကျလာသော်လည်း၊ အရှေ့အလယ်ပိုင်း အခြေအနေများနှင့် ကမ္ဘာ့ထောက်ပံ့ရေးကွင်းဆက် (Supply Chain) တင်းမာမှုများကြောင့် အတက်ဘက်သို့ ဦးတည်လိုသည့် ဖိအားများက ဆက်လက်ရှိနေဆဲ ဖြစ်ပါသည်။  
 IEA
 + 1
+● မန်ဘာများအားလုံး မိမိတို့ ပိုင်ဆိုင်မှုကို သေჩာ စီမံခန့်ခွဲကြပါရန်။"""
 # =========================================================
 
 # Global Data Cache
@@ -57,7 +59,7 @@ current_market_cache = {
     "last_update": "N/A",
     "wti_gauge": 50,
     "brent_gauge": 55,
-    "ai_news": "● ကမ္ဘာ့ရေနံဈေးကွက်သတင်းများကို AI ဖြင့်အနှစ်ချုပ် သုံးသပ်နေပါသည်...",
+    "ai_news": "● ကမ္ဘာ့ရေနံဈေးကွက်သတင်းများကို AI ဖြင့် သေჩာစွာ အနှစ်ချုပ် သုံးသပ်နေပါသည်...",
     "last_mops_text": "No custom MOPS news forwarded from group yet. Waiting for member updates...",
     "admin_intel": ADMIN_MESSAGE 
 }
@@ -326,7 +328,7 @@ def telegram_loop():
             bot.send_message(GROUP_CHAT_ID, generate_telegram_msg())
         except Exception as e: 
             print(f"Telegram broadcast error: {e}")
-        time.sleep(28800)
+        time.sleep(14400)
 
 if __name__ == "__main__":
     try: bot.delete_webhook(drop_pending_updates=True)

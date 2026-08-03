@@ -8,7 +8,6 @@ import telebot
 import google.generativeai as genai
 
 app = Flask('')
-
 # ======= [ CONFIGURATION - TOKENS & KEYS ] =======
 TG_TOKEN = "8646909789:AAH6uYspvEsKAQX__ZlthAOPEr-Dv6__ORg"
 GROUP_CHAT_ID = -1003940722388  

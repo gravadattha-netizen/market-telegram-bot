@@ -1,19 +1,41 @@
+import os
 import time
 import requests
 import threading
-import os
 import xml.etree.ElementTree as ET
 from flask import Flask, render_template_string
 import telebot
 import google.generativeai as genai
 
 app = Flask('')
+
 # ======= [ CONFIGURATION - TOKENS & KEYS ] =======
-TG_TOKEN = "8646909789:AAH6uYspvEsKAQX__ZlthAOPEr-Dv6__ORg"
-GROUP_CHAT_ID = -1003940722388  
-GOOGLE_API_KEY = "AIzaSyAKM5IAugwBdKxrWQ__igkDwjwITW6f2kc"
+TG_TOKEN = os.environ.get("TG_TOKEN", "8646909789:AAH6uYspvEsKAQX__ZlthAOPEr-Dv6__ORg")
+GROUP_CHAT_ID = int(os.environ.get("GROUP_CHAT_ID", -1003940722388))
+GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "AIzaSyAKM5IAugwBdKxrWQ__igkDwjwITW6f2kc")
 
 genai.configure(api_key=GOOGLE_API_KEY)
+
+# ======= [ MOPS DATA PERSISTENCE (FILE SAVING) ] =======
+def save_mops_to_file(text):
+    """ MOPS စာသားအသစ်ဝင်လာပါက mops_data.txt ထဲသို့ ရေးသိမ်းမည် """
+    try:
+        with open("mops_data.txt", "w", encoding="utf-8") as f:
+            f.write(text)
+    except Exception as e:
+        print(f"Error saving MOPS file: {e}")
+
+def load_mops_from_file():
+    """ Server ပြန်ပွင့်လာပါက mops_data.txt ဖိုင်ထဲမှ စာအဟောင်းကို ပြန်ဖတ်မည် """
+    if os.path.exists("mops_data.txt"):
+        try:
+            with open("mops_data.txt", "r", encoding="utf-8") as f:
+                content = f.read().strip()
+                if content:
+                    return content
+        except Exception as e:
+            print(f"Error reading MOPS file: {e}")
+    return "No custom MOPS news forwarded from group yet. Waiting for member updates..."
 
 # =========================================================
 # ✍️ [ ADMIN INPUT ] - ဆီလုပ်ငန်းသတင်းများ ရေးထည့်ရန်နေရာ
@@ -43,8 +65,7 @@ ADMIN_MESSAGE = """Crude Oil WTI ရဲ့ ၄ နာရီပြဇယား (4
 💡 အဓိက အကြံပြုချက်
  * $76.00 မှ $77.85 ကြား သည် ဈေးငြိမ်နေသည့် ဘောင်အတွင်း ရောက်ရှိနေသဖြင့် ကြားထဲတွင် အလောတကြီး ဝင်ရောက် အရောင်းအဝယ် မလုပ်ဘဲ အထက် သို့မဟုတ် အောက် ဘက်သို့ အတည်ပြု ခွဲထွက်ချိန် (Breakout) မှသာ ဝင်ရောက်ခြင်းက အန္တရာယ် ကင်းဆုံး ဖြစ်ပါမည်။
 
-● မန်ဘာများအားလုံး မိမိတို့ ပိုင်ဆိုင်မှုကို သေჩာ စီမံခန့်ခွဲကြပါရန်။"""
-# =========================================================
+● မန်ဘာများအားလုံး မိမိတို့ ပိုင်ဆိုင်မှုကို သေချာ စီမံခန့်ခွဲကြပါရန်။"""
 
 # Global Data Cache
 current_market_cache = {
@@ -54,8 +75,8 @@ current_market_cache = {
     "last_update": "N/A",
     "wti_gauge": 50,
     "brent_gauge": 55,
-    "ai_news": "● ကမ္ဘာ့ရေနံဈေးကွက်သတင်းများကို AI ဖြင့် သေჩာစွာ အနှစ်ချုပ် သုံးသပ်နေပါသည်...",
-    "last_mops_text": "No custom MOPS news forwarded from group yet. Waiting for member updates...",
+    "ai_news": "● ကမ္ဘာ့ရေနံဈေးကွက်သတင်းများကို AI ဖြင့် သေချာစွာ အနှစ်ချုပ် သုံးသပ်နေပါသည်...",
+    "last_mops_text": load_mops_from_file(),  # ဖိုင်ထဲမှ စာအဟောင်းကို အလိုအလျောက် ပြန်ဆွဲယူမည်
     "admin_intel": ADMIN_MESSAGE 
 }
 
@@ -212,10 +233,11 @@ def update_ai_analysis(prices):
         headlines = []
         rss_url = "https://www.cnbc.com/id/19832390/device/rss/rss.html"
         res = requests.get(rss_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=8)
-        root = ET.fromstring(res.content)
-        for item in root.findall('.//item')[:4]:
-            text = item.find('title').text
-            if text: headlines.append(text)
+        if res.status_code == 200:
+            root = ET.fromstring(res.content)
+            for item in root.findall('.//item')[:4]:
+                text = item.find('title').text
+                if text: headlines.append(text)
         
         raw_news = " | ".join(headlines) if headlines else "Oil market metrics are shifting."
 
@@ -231,7 +253,7 @@ def update_ai_analysis(prices):
             "3. Do NOT mention gold, cryptocurrency, bitcoin, or currency indexes."
         )
         response = model.generate_content(prompt)
-        if response.text and len(response.text.strip()) > 10:
+        if response and response.text and len(response.text.strip()) > 10:
             return response.text.strip()
     except Exception as e:
         print(f"Gemini error: {e}")
@@ -239,20 +261,25 @@ def update_ai_analysis(prices):
 
 # ======= [ YAHOO FINANCE FIXED LIVE FEED ] =======
 def fetch_yahoo_oil_price(symbol):
-    """ Yahoo Finance API URL စာလုံးပေါင်း အမှန်ပြင်ဆင်ထားသည် """
-    try:
-        # finance.yahoo.com တိုက်ရိုက် endpoint သို့ ပြောင်းလဲထားပါသည်
-        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1m&range=1d"
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-        response = requests.get(url, headers=headers, timeout=7).json()
-        meta = response['chart']['result'][0]['meta']
-        price = meta['regularMarketPrice']
-        prev_close = meta['previousClose']
-        trend = "up" if price >= prev_close else "down"
-        return round(float(price), 2), trend
-    except Exception as e:
-        print(f"Yahoo Finance fetch error for {symbol}: {e}")
-        return None, None
+    endpoints = [
+        f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1m&range=1d",
+        f"https://query2.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1m&range=1d"
+    ]
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
+    
+    for url in endpoints:
+        try:
+            response = requests.get(url, headers=headers, timeout=7).json()
+            meta = response['chart']['result'][0]['meta']
+            price = meta['regularMarketPrice']
+            prev_close = meta.get('previousClose', price)
+            trend = "up" if price >= prev_close else "down"
+            return round(float(price), 2), trend
+        except Exception:
+            continue
+            
+    print(f"Yahoo Finance fetch error for {symbol}")
+    return None, None
 
 def update_dashboard_data():
     prices = current_market_cache["prices"].copy()
@@ -280,35 +307,42 @@ def update_dashboard_data():
     current_market_cache["prices"] = prices
     current_market_cache["display_prices"] = disp
     current_market_cache["trends"] = trends
-    current_market_cache["last_update"] = time.strftime("%I:%M %p")
+    
+    # မြန်မာစံတော်ချိန် (+6:30)
+    current_market_cache["last_update"] = time.strftime("%I:%M %p", time.localtime(time.time() + 23400))
     
     current_market_cache["wti_gauge"] = 65 if trends["WTI"] == "up" else 45
     current_market_cache["brent_gauge"] = 68 if trends["BRENT"] == "up" else 48
 
-# ======= [ TELEGRAM CONSTRUCT REPORT ] =======
+# ======= [ TELEGRAM CONSTRUCT REPORT (HTML FORMAT) ] =======
 def generate_telegram_msg():
     d = current_market_cache["display_prices"]
     t = current_market_cache["trends"]
     def arr(k): return "▲" if t[k] == "up" else "▼"
     return (
-        "✨ 🛢 **(မင်္ဂလာရှိသောနေ့လေးဖြစ်ပါစေ)** 🛢 ✨\n\n"
-        "📊 **Energy Market Intelligence Update**\n\n"
-        f"🛢 **WTI Crude:** {d['WTI']} {arr('WTI')}\n"
-        f"🔥 **Brent Oil:** {d['BRENT']} {arr('BRENT')}\n\n"
-        f"✍️ **Admin Intel & Outlook:**\n{current_market_cache['admin_intel']}\n\n"
-        f"🤖 **AI Analysis:**\n{current_market_cache['ai_news']}\n\n"
+        "✨ 🛢 <b>(မင်္ဂလာရှိသောနေ့လေးဖြစ်ပါစေ)</b> 🛢 ✨\n\n"
+        "📊 <b>Energy Market Intelligence Update</b>\n\n"
+        f"🛢 <b>WTI Crude:</b> <code>{d['WTI']}</code> {arr('WTI')}\n"
+        f"🔥 <b>Brent Oil:</b> <code>{d['BRENT']}</code> {arr('BRENT')}\n\n"
+        f"✍️ <b>Admin Intel & Outlook:</b>\n{current_market_cache['admin_intel']}\n\n"
+        f"🤖 <b>AI Analysis:</b>\n{current_market_cache['ai_news']}\n\n"
         f"🕒 Sync: {current_market_cache['last_update']}\n\n"
-        "⚠️ **အရောင်းအဝယ်မပြုလုပ်ပါ သတင်းအချက်အလက်တင်ပြခြင်းပါ**"
+        "⚠️ <b>အရောင်းအဝယ်မပြုလုပ်ပါ သတင်းအချက်အလက်တင်ပြခြင်းပါ</b>"
     )
 
 @bot.message_handler(func=lambda m: True)
 def handle_msg(m):
     if m.text:
+        # MOPS, Singapore သို့မဟုတ် ဆီဈေး ပါသော စာကို ဖမ်းယူပြီး memory နှင့် file ထဲ သိမ်းဆည်းခြင်း
         if any(kw in m.text.lower() for kw in ["mops", "singapore", "ဆီဈေး"]):
             current_market_cache["last_mops_text"] = m.text
+            save_mops_to_file(m.text)
+            
         if "ဈေး" in m.text:
-            try: bot.reply_to(m, generate_telegram_msg())
-            except: pass
+            try: 
+                bot.reply_to(m, generate_telegram_msg(), parse_mode="HTML")
+            except Exception as e:
+                print(f"Reply error: {e}")
 
 def dashboard_loop():
     while True:
@@ -320,14 +354,16 @@ def telegram_loop():
         update_dashboard_data()
         current_market_cache["ai_news"] = update_ai_analysis(current_market_cache["prices"])
         try: 
-            bot.send_message(GROUP_CHAT_ID, generate_telegram_msg())
+            bot.send_message(GROUP_CHAT_ID, generate_telegram_msg(), parse_mode="HTML")
         except Exception as e: 
             print(f"Telegram broadcast error: {e}")
         time.sleep(28800)
 
 if __name__ == "__main__":
-    try: bot.delete_webhook(drop_pending_updates=True)
-    except: pass
+    try: 
+        bot.delete_webhook(drop_pending_updates=True)
+    except: 
+        pass
     
     update_dashboard_data()
     current_market_cache["ai_news"] = update_ai_analysis(current_market_cache["prices"])
@@ -337,7 +373,8 @@ if __name__ == "__main__":
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000))), daemon=True).start()
     
     while True:
-        try: bot.polling(none_stop=True, timeout=60)
+        try: 
+            bot.polling(none_stop=True, timeout=60)
         except Exception as e: 
             print(f"Bot polling crash, restarting...: {e}")
             time.sleep(5)

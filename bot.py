@@ -20,7 +20,7 @@ genai.configure(api_key=GOOGLE_API_KEY)
 # ✍️ [ ADMIN INPUT ] - ဆီလုပ်ငန်းသတင်းများ ရေးထည့်ရန်နေရာ
 # =========================================================
 ADMIN_MESSAGE = """● QR စနစ်ဖြင့်တစ်နိုင်ငံလုံး ဆိုင်ပေါင်း ၁၇၃၀ တပ်ဆင်ရောင်းချ ပေးနေပါသည်
-● မန်ဘာများအားလုံး မိမိတို့ ပိုင်ဆိုင်မှုကို သေချာ စီမံခန့်ခွဲကြပါရန်။"""
+● မန်ဘာများအားလုံး မိမိတို့ ပိုင်ဆိုင်မှုကို သေჩာ စီမံခန့်ခွဲကြပါရန်။"""
 # =========================================================
 
 # Global Data Cache
@@ -31,7 +31,7 @@ current_market_cache = {
     "last_update": "N/A",
     "wti_gauge": 50,
     "brent_gauge": 55,
-    "ai_news": "● ကမ္ဘာ့ရေနံဈေးကွက်သတင်းများကို AI ဖြင့် သေချာစွာ အနှစ်ချုပ် သုံးသပ်နေပါသည်...",
+    "ai_news": "● ကမ္ဘာ့ရေနံဈေးကွက်သတင်းများကို AI ဖြင့် သေჩာစွာ အနှစ်ချုပ် သုံးသပ်နေပါသည်...",
     "last_mops_text": "No custom MOPS news forwarded from group yet. Waiting for member updates...",
     "admin_intel": ADMIN_MESSAGE 
 }
@@ -41,6 +41,13 @@ DASHBOARD_HTML = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-EWB0JD6TR2"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-EWB0JD6TR2');
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>⚡ Kyaw Gyi Energy Intelligence Hub</title>
@@ -189,8 +196,7 @@ def update_ai_analysis(prices):
         
         raw_news = " | ".join(headlines) if headlines else "Oil market metrics are shifting."
 
-        # Model အမည်အသစ်သို့ ပြောင်းထားသည်
-        model = genai.GenerativeModel('gemini-2.5-flash')
+        model = genai.GenerativeModel('gemini-1.5-flash')
         prompt = (
             "Analyze the following oil prices and energy market news to provide a brief 3-bullet-point summary in Burmese. "
             "Keep it short, clear, and highly focused on petroleum/crude oil trends.\n\n"
@@ -210,7 +216,9 @@ def update_ai_analysis(prices):
 
 # ======= [ YAHOO FINANCE FIXED LIVE FEED ] =======
 def fetch_yahoo_oil_price(symbol):
+    """ Yahoo Finance API URL စာလုံးပေါင်း အမှန်ပြင်ဆင်ထားသည် """
     try:
+        # finance.yahoo.com တိုက်ရိုက် endpoint သို့ ပြောင်းလဲထားပါသည်
         url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1m&range=1d"
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
         response = requests.get(url, headers=headers, timeout=7).json()
@@ -228,11 +236,13 @@ def update_dashboard_data():
     disp = current_market_cache["display_prices"].copy()
     trends = current_market_cache["trends"].copy()
     
+    # 1. WTI Crude Oil Live (CL=F)
     wti_p, wti_t = fetch_yahoo_oil_price("CL=F")
     if wti_p:
         prices["WTI"] = wti_p
         trends["WTI"] = wti_t
         
+    # 2. Brent Crude Oil Live (BZ=F)
     brent_p, brent_t = fetch_yahoo_oil_price("BZ=F")
     if brent_p:
         prices["BRENT"] = brent_p
@@ -252,6 +262,7 @@ def update_dashboard_data():
     current_market_cache["wti_gauge"] = 65 if trends["WTI"] == "up" else 45
     current_market_cache["brent_gauge"] = 68 if trends["BRENT"] == "up" else 48
 
+# ======= [ TELEGRAM CONSTRUCT REPORT ] =======
 def generate_telegram_msg():
     d = current_market_cache["display_prices"]
     t = current_market_cache["trends"]
@@ -300,6 +311,10 @@ if __name__ == "__main__":
     
     threading.Thread(target=dashboard_loop, daemon=True).start()
     threading.Thread(target=telegram_loop, daemon=True).start()
+    threading.Thread(target=lambda: app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000))), daemon=True).start()
     
-    # Render (Web Service) တွင် 409 Conflict Error မတက်စေရန် bot.polling() ကို ဖယ်ရှားပြီး Flask ကိုသာ သီးသန့် Run ထားပါသည်
-    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
+    while True:
+        try: bot.polling(none_stop=True, timeout=60)
+        except Exception as e: 
+            print(f"Bot polling crash, restarting...: {e}")
+            time.sleep(5)

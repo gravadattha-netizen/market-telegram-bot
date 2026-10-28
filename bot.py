@@ -8,7 +8,7 @@ import google.generativeai as genai
 app = Flask(__name__)
 
 # ======= [ CONFIGURATION - TOKENS & KEYS ] =======
-TG_TOKEN = "8876036329:AAG-2niM2gv2nKbIfVzGeBijsx5Eo3yLz0Q"
+TG_TOKEN = "8646909789:AAEHviwhSkNKyMAw6jTIGz_O2jxxE8SafvY"
 GROUP_CHAT_ID = "-1003940722388"
 GOOGLE_API_KEY = "AIzaSyAKM5IAugwBdKxrWQ__igkDwjwITW6f2kc"
 
@@ -19,19 +19,19 @@ ADMIN_MESSAGE = """🗓 ⛽ [ ADMIN INPUT ] - လာမည့် သောကြ
 • QR စနစ်ဖြင့်တစ်နိုင်ငံလုံး ဆိုင်ပေါင်း ၁၇၃၀ တပ်ဆင်ရောင်းချပေးနေပါသည်
 • မန်ဘာများအားလုံး မိမိတို့ ပိုင်ဆိုင်မှုကို သေချာ စီမံခန့်ခွဲကြပါရန်။"""
 
-# Global Data Cache
+# Global Data Cache (Updated Real Market Prices)
 current_market_cache = {
     "prices": {
         "WTI": "$101.41", 
         "BRENT": "$110.89", 
-        "MOPS_GASOLINE": "$103.50", 
-        "MOPS_DIESEL": "$107.20"
+        "MOPS_GASOLINE": "$142.50", 
+        "MOPS_DIESEL": "$179.20"
     },
     "trends": {
         "WTI": "up", 
         "BRENT": "up", 
         "MOPS_GASOLINE": "up", 
-        "MOPS_DIESEL": "down"
+        "MOPS_DIESEL": "up"
     },
     "ai_analysis": "● ကမ္ဘာ့အရေးအခင်းနှင့် စစ်ရေးတင်းမာမှုများကြောင့် စွမ်းအင်ဈေးကွက် အပြောင်းအလဲရှိနိုင်ပါသည်။\n● နိုင်ငံတကာ ရေနံလိုအပ်ချက်နှင့် ထုတ်လုပ်မှုအခြေအနေများကို စောင့်ကြည့်ရန် လိုအပ်ပါသည်။",
     "admin_intel": ADMIN_MESSAGE
@@ -39,20 +39,21 @@ current_market_cache = {
 
 bot = telebot.TeleBot(TG_TOKEN)
 
-# ======= [ 2. MARKET PRICES FETCHING ] =======
+# ======= [ 2. MARKET PRICES FETCHING (Updated MOPS) ] =======
 def fetch_live_market_data():
     try:
+        # ထောက်ပြထားသည့်အတိုင်း MOPS Gasoline နှင့် HSD/Diesel (10ppm) ဈေးနှုန်းအမှန်များ
         prices = {
             "WTI": "$101.41",
             "BRENT": "$110.89",
-            "MOPS_GASOLINE": "$103.50",
-            "MOPS_DIESEL": "$107.20"
+            "MOPS_GASOLINE": "$142.50",
+            "MOPS_DIESEL": "$179.20"
         }
         trends = {
             "WTI": "up",
             "BRENT": "up",
             "MOPS_GASOLINE": "up",
-            "MOPS_DIESEL": "down"
+            "MOPS_DIESEL": "up"
         }
         return prices, trends
     except Exception as e:
@@ -64,7 +65,7 @@ def generate_ai_analysis():
     try:
         model = genai.GenerativeModel('gemini-1.5-flash')
         prompt = (
-            "ကမ္ဘာ့လက်ရှိ စစ်ရေး၊ နိုင်ငံရေး၊ ပထဝီနိုင်ငံရေး အခြေအနေများနှင့် ဓာတ်ဆီ၊ ဒီဇယ် (MOPS Gasoline & Diesel) ဈေးကွက်အပေါ် "
+            "ကမ္ဘာ့လက်ရှိ စစ်ရေး၊ နိုင်ငံရေး၊ ပထဝီနိုင်ငံရေး အခြေအနေများနှင့် ဓာတ်ဆီ၊ ဒီဇယ် (MOPS Gasoline & Diesel 10ppm) ဈေးကွက်အပေါ် "
             "သက်ရောက်မှုများကို မြန်မာဘာသာဖြင့် တိုတိုရှင်းရှင်း သုံးသပ်ပေးပါ။ "
             "အချက် ၂ ချက်ပါဝင်သော bullet points (●) များဖြင့်သာ ရေးသားပေးပါ။"
         )
@@ -96,7 +97,7 @@ def send_telegram_update():
             f"🛢 **WTI Crude:** {prices['WTI']} ({wti_status})\n"
             f"🔥 **Brent Oil:** {prices['BRENT']} ({brent_status})\n"
             f"⛽ **MOPS Gasoline (ဓာတ်ဆီ):** {prices['MOPS_GASOLINE']} ({gas_status})\n"
-            f"🚛 **MOPS Diesel (ဒီဇယ်):** {prices['MOPS_DIESEL']} ({diesel_status})\n\n"
+            f"🚛 **MOPS Diesel 10ppm (ဒီဇယ်):** {prices['MOPS_DIESEL']} ({diesel_status})\n\n"
             "✍️ **Admin Intel & Outlook:**\n"
             f"{ADMIN_MESSAGE}\n\n"
             "🤖 **AI & Live Market Analysis (စစ်ရေး/နိုင်ငံရေး/ဈေးကွက်):**\n"
@@ -112,7 +113,7 @@ def send_telegram_update():
         print(f"Error sending telegram message: {e}")
         return False
 
-# ======= [ 5. REDESIGNED DASHBOARD ROUTE ] =======
+# ======= [ 5. DASHBOARD ROUTE ] =======
 @app.route("/")
 def dashboard():
     prices = current_market_cache["prices"]
@@ -175,13 +176,11 @@ def dashboard():
                 border-bottom: 1px solid var(--border-color);
                 padding-bottom: 8px;
             }
-            /* Row layout for Crude Oil */
             .prices-row {
                 display: flex;
                 gap: 15px;
                 margin-bottom: 15px;
             }
-            /* Grid layout for MOPS */
             .prices-grid {
                 display: flex;
                 gap: 15px;
@@ -259,7 +258,7 @@ def dashboard():
                     </div>
                 </div>
 
-                <!-- Bottom Row: MOPS Prices (Gasoline & Diesel) -->
+                <!-- Bottom Row: MOPS Prices (Gasoline & Diesel 10ppm) -->
                 <div class="prices-grid">
                     <div class="price-item">
                         <div class="price-title">MOPS Gasoline (ဓာတ်ဆီ)</div>
@@ -272,7 +271,7 @@ def dashboard():
                     </div>
 
                     <div class="price-item">
-                        <div class="price-title">MOPS Diesel (ဒီဇယ်)</div>
+                        <div class="price-title">MOPS Diesel 10ppm (ဒီဇယ်)</div>
                         <div class="price-value">{{ prices.MOPS_DIESEL }}</div>
                         {% if trends.MOPS_DIESEL == 'up' %}
                             <span class="badge badge-buy">BUY ▲</span>

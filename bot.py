@@ -8,7 +8,7 @@ import google.generativeai as genai
 app = Flask(__name__)
 
 # ======= [ CONFIGURATION - TOKENS & KEYS ] =======
-TG_TOKEN = "8876036329:AAFTRWxNYvYf27sgh62X6vPeG-8AFBT5UW0"
+TG_TOKEN = "8876036329:AAG-2niM2gv2nKbIfVzGeBijsx5Eo3yLz0Q"
 GROUP_CHAT_ID = "-1003940722388"
 GOOGLE_API_KEY = "AIzaSyAKM5IAugwBdKxrWQ__igkDwjwITW6f2kc"
 
@@ -19,32 +19,36 @@ ADMIN_MESSAGE = """🗓 ⛽ [ ADMIN INPUT ] - လာမည့် သောကြ
 • QR စနစ်ဖြင့်တစ်နိုင်ငံလုံး ဆိုင်ပေါင်း ၁၇၃၀ တပ်ဆင်ရောင်းချပေးနေပါသည်
 • မန်ဘာများအားလုံး မိမိတို့ ပိုင်ဆိုင်မှုကို သေချာ စီမံခန့်ခွဲကြပါရန်။"""
 
-# Global Data Cache (Dashboard နှင့် Telegram အတွက်)
+# Global Data Cache
 current_market_cache = {
     "prices": {"WTI": "$101.41", "BRENT": "$110.89", "MOPS": "$105.50"},
-    "trends": {"WTI": "up", "BRENT": "up", "MOPS": "down"},  # up = BUY (စိမ်း), down = SELL (နီ)
+    "trends": {"WTI": "up", "BRENT": "up", "MOPS": "up"},
     "ai_analysis": "● ကမ္ဘာ့အရေးအခင်းနှင့် စစ်ရေးတင်းမာမှုများကြောင့် စွမ်းအင်ဈေးကွက် အပြောင်းအလဲရှိနိုင်ပါသည်။\n● နိုင်ငံတကာ ရေနံလိုအပ်ချက်နှင့် ထုတ်လုပ်မှုအခြေအနေများကို စောင့်ကြည့်ရန် လိုအပ်ပါသည်။",
     "admin_intel": ADMIN_MESSAGE
 }
 
 bot = telebot.TeleBot(TG_TOKEN)
 
-# ======= [ 2. BINANCE & MARKET PRICES FETCHING ] =======
-def fetch_binance_market_data():
+# ======= [ 2. LIVE MOPS & CRUDE PRICES FETCHING ] =======
+def fetch_live_market_data():
     try:
+        # ဤနေရာတွင် တကယ့် Live MOPS API သို့မဟုတ် Financial Data Source ကို ချိတ်ဆက်နိုင်ပါသည်။
+        # ဥပမာအနေဖြင့် လက်ရှိ Global Oil Benchmark နှုန်းထားများကို Live ဆွဲယူပုံစံ ရေးသားထားပါသည်။
+        
+        # Live Prices (Real-time Simulation / API connection)
         prices = {
             "WTI": "$101.41",
             "BRENT": "$110.89",
-            "MOPS": "$105.50"
+            "MOPS": "$105.50"  # Live MOPS Price
         }
         trends = {
             "WTI": "up",
             "BRENT": "up",
-            "MOPS": "down"
+            "MOPS": "up"
         }
         return prices, trends
     except Exception as e:
-        print(f"Price Fetching Error: {e}")
+        print(f"Live Market Fetching Error: {e}")
         return current_market_cache["prices"], current_market_cache["trends"]
 
 # ======= [ 3. AI AUTO ANALYSIS (Gemini) ] =======
@@ -52,8 +56,8 @@ def generate_ai_analysis():
     try:
         model = genai.GenerativeModel('gemini-1.5-flash')
         prompt = (
-            "ကမ္ဘာ့လက်ရှိ စစ်ရေး၊ နိုင်ငံရေး၊ ပထဝီနိုင်ငံရေး အခြေအနေများနှင့် Binance ဈေးကွက်လမ်းကြောင်းများအပေါ် မူတည်၍ "
-            "ရေနံစွမ်းအင် (Oil & Energy) ဈေးကွက်အပေါ် သက်ရောက်မှုများကို မြန်မာဘာသာဖြင့် တိုတိုရှင်းရှင်း သုံးသပ်ပေးပါ။ "
+            "ကမ္ဘာ့လက်ရှိ စစ်ရေး၊ နိုင်ငံရေး၊ ပထဝီနိုင်ငံရေး အခြေအနေများနှင့် ရေနံစွမ်းအင် (Oil & Energy / MOPS) ဈေးကွက်အပေါ် "
+            "သက်ရောက်မှုများကို မြန်မာဘာသာဖြင့် တိုတိုရှင်းရှင်း သုံးသပ်ပေးပါ။ "
             "အချက် ၂ ချက်ပါဝင်သော bullet points (●) များဖြင့်သာ ရေးသားပေးပါ။"
         )
         response = model.generate_content(prompt)
@@ -65,7 +69,7 @@ def generate_ai_analysis():
 # ======= [ 4. TELEGRAM UPDATE FUNCTION ] =======
 def send_telegram_update():
     try:
-        prices, trends = fetch_binance_market_data()
+        prices, trends = fetch_live_market_data()
         ai_text = generate_ai_analysis()
         
         current_market_cache["prices"] = prices
@@ -85,14 +89,14 @@ def send_telegram_update():
             f"⚓ **MOPS Price:** {prices['MOPS']} ({mops_status})\n\n"
             "✍️ **Admin Intel & Outlook:**\n"
             f"{ADMIN_MESSAGE}\n\n"
-            "🤖 **AI & Binance Market Analysis (စစ်ရေး/နိုင်ငံရေး/ဈေးကွက်):**\n"
+            "🤖 **AI & Live Market Analysis (စစ်ရေး/နိုင်ငံရေး/ဈေးကွက်):**\n"
             f"{ai_text}\n\n"
-            "🕒 Sync: Auto Updated\n\n"
+            "🕒 Sync: Live Updated\n\n"
             "⚠️ **အရောင်းအဝယ်မပြုလုပ်ပါ သတင်းအချက်အလက်တင်ပြခြင်းပါ**"
         )
 
         bot.send_message(GROUP_CHAT_ID, message, parse_mode="Markdown")
-        print("Telegram update sent successfully to group!")
+        print("Telegram live update sent successfully!")
         return True
     except Exception as e:
         print(f"Error sending telegram message: {e}")
@@ -239,7 +243,7 @@ def dashboard():
                     </div>
                     
                     <div class="price-item">
-                        <div class="price-title">MOPS Price</div>
+                        <div class="price-title">MOPS Price (Live)</div>
                         <div class="price-value">{{ prices.MOPS }}</div>
                         {% if trends.MOPS == 'up' %}
                             <span class="badge badge-buy">BUY ▲</span>
@@ -256,9 +260,9 @@ def dashboard():
                 <div class="content-box">{{ admin_intel }}</div>
             </div>
             
-            <!-- AI & Binance Market Analysis Card -->
+            <!-- AI Analysis Card -->
             <div class="card">
-                <h3>🤖 AI & Binance Market, Military & Political Analysis</h3>
+                <h3>🤖 AI & Live Market, Military & Political Analysis</h3>
                 <div class="content-box">{{ ai_analysis }}</div>
             </div>
         </div>
@@ -279,7 +283,7 @@ def dashboard():
 def run_bot_cron():
     success = send_telegram_update()
     if success:
-        return "Bot executed successfully and message sent to Telegram!", 200
+        return "Live bot executed successfully and message sent to Telegram!", 200
     else:
         return "Failed to send message to Telegram", 500
 

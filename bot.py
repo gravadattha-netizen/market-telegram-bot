@@ -35,7 +35,7 @@ current_market_cache = {
         "MOPS_DIESEL": "up"
     },
     "technical_signal": "Strong Buy",
-    "sentiment": {"bullish": 78, "bearish": 22},
+    "sentiment": {"bullish": 82, "bearish": 18},
     "ai_analysis": "● ကမ္ဘာ့အရေးအခင်းနှင့် စစ်ရေးတင်းမာမှုများကြောင့် စွမ်းအင်ဈေးကွက် အပြောင်းအလဲရှိနိုင်ပါသည်။\n● နိုင်ငံတကာ ရေနံလိုအပ်ချက်နှင့် ထုတ်လုပ်မှုအခြေအနေများကို စောင့်ကြည့်ရန် လိုအပ်ပါသည်။",
     "admin_intel": ADMIN_MESSAGE,
     "last_updated": "Auto Updated"
@@ -58,7 +58,7 @@ def fetch_live_market_data():
             "MOPS_GASOLINE": "up",
             "MOPS_DIESEL": "up"
         }
-        signal = "Strong Buy"  # ပုံထဲပါသည့် Technical Indicator ပုံစံ
+        signal = "Strong Buy"
         sentiment = {"bullish": 82, "bearish": 18}
         return prices, trends, signal, sentiment
     except Exception as e:
@@ -88,7 +88,7 @@ def send_telegram_update():
         
         current_market_cache["prices"] = prices
         current_market_cache["trends"] = trends
-        current_market_cache[" технический_signal"] = signal
+        current_market_cache["technical_signal"] = signal
         current_market_cache["sentiment"] = sentiment
         current_market_cache["ai_analysis"] = ai_text
         current_market_cache["admin_intel"] = ADMIN_MESSAGE
@@ -117,7 +117,7 @@ def send_telegram_update():
         )
 
         bot.send_message(GROUP_CHAT_ID, message, parse_mode="Markdown")
-        print("4-hourly telegram update sent successfully!")
+        print("Telegram update sent successfully!")
         return True
     except Exception as e:
         print(f"Error sending telegram message: {e}")
@@ -126,8 +126,7 @@ def send_telegram_update():
 # ======= [ 5. BACKGROUND (4-HOURLY) AUTO-UPDATER THREAD ] =======
 def auto_update_loop():
     while True:
-        # ၄ နာရီလျှင် တစ်ကြိမ် (စက္ကန့် ၁၄၄၀၀ = ၄ နာရီ)
-        time.sleep(14400)
+        time.sleep(14400) # 4 hours
         try:
             prices, trends, signal, sentiment = fetch_live_market_data()
             ai_text = generate_ai_analysis()
@@ -137,14 +136,10 @@ def auto_update_loop():
             current_market_cache["sentiment"] = sentiment
             current_market_cache["ai_analysis"] = ai_text
             current_market_cache["last_updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
-            
-            # Telegram သို့ အလိုအလျောက် ပို့မည်
             send_telegram_update()
-            print("4-hourly background update executed.")
         except Exception as e:
             print(f"Update thread error: {e}")
 
-# Start background thread
 threading.Thread(target=auto_update_loop, daemon=True).start()
 
 # ======= [ 6. DASHBOARD ROUTE ] =======
@@ -154,6 +149,8 @@ def dashboard():
     trends = current_market_cache["trends"]
     signal = current_market_cache.get("technical_signal", "Strong Buy")
     sentiment = current_market_cache.get("sentiment", {"bullish": 82, "bearish": 18})
+    admin_intel = current_market_cache["admin_intel"]
+    ai_analysis = current_market_cache["ai_analysis"]
     
     html_template = """
     <!DOCTYPE html>
@@ -224,3 +221,194 @@ def dashboard():
                 display: flex;
                 gap: 15px;
                 margin-bottom: 15px;
+            }
+            .prices-grid {
+                display: flex;
+                gap: 15px;
+            }
+            .price-item {
+                background: #111418;
+                padding: 15px;
+                border-radius: 10px;
+                text-align: center;
+                flex: 1;
+                border: 1px solid var(--border-color);
+            }
+            .price-title {
+                font-size: 14px;
+                color: #8b949e;
+                margin-bottom: 5px;
+                font-weight: 600;
+            }
+            .price-value {
+                font-size: 20px;
+                font-weight: bold;
+                color: #ffffff;
+                margin-bottom: 8px;
+            }
+            .badge {
+                display: inline-block;
+                padding: 5px 12px;
+                border-radius: 20px;
+                font-size: 13px;
+                font-weight: bold;
+                color: white;
+            }
+            .badge-buy {
+                background-color: var(--buy-green);
+            }
+            .badge-sell {
+                background-color: var(--sell-red);
+            }
+            .indicator-box {
+                background: #111418;
+                padding: 15px;
+                border-radius: 10px;
+                text-align: center;
+                border: 1px solid var(--border-color);
+                margin-bottom: 15px;
+            }
+            .gauge-title {
+                font-size: 14px;
+                color: #8b949e;
+                margin-bottom: 8px;
+            }
+            .gauge-badge {
+                display: inline-block;
+                padding: 8px 20px;
+                border-radius: 20px;
+                font-size: 16px;
+                font-weight: bold;
+                background-color: var(--buy-green);
+                color: white;
+            }
+            .sentiment-container {
+                display: flex;
+                gap: 15px;
+            }
+            .sentiment-bar {
+                background: #111418;
+                padding: 15px;
+                border-radius: 10px;
+                flex: 1;
+                text-align: center;
+                border: 1px solid var(--border-color);
+            }
+            .bullish { color: var(--buy-green); font-weight: bold; }
+            .bearish { color: var(--sell-red); font-weight: bold; }
+            .content-box {
+                white-space: pre-line;
+                line-height: 1.6;
+                font-size: 15px;
+                color: #e6edf3;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🛢 Oil Energy Intelligence Hub Dashboard</h1>
+            
+            <div class="card">
+                <h3 class="center-title">📊 Live Market Prices (4-Hourly Auto Update)</h3>
+                
+                <div class="prices-row">
+                    <div class="price-item">
+                        <div class="price-title">WTI Crude</div>
+                        <div class="price-value">{{ prices.WTI }}</div>
+                        {% if trends.WTI == 'up' %}
+                            <span class="badge badge-buy">BUY ▲</span>
+                        {% else %}
+                            <span class="badge badge-sell">SELL ▼</span>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="price-item">
+                        <div class="price-title">Brent Oil</div>
+                        <div class="price-value">{{ prices.BRENT }}</div>
+                        {% if trends.BRENT == 'up' %}
+                            <span class="badge badge-buy">BUY ▲</span>
+                        {% else %}
+                            <span class="badge badge-sell">SELL ▼</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="prices-grid">
+                    <div class="price-item">
+                        <div class="price-title">MOPS Gasoline (ဓာတ်ဆီ)</div>
+                        <div class="price-value">{{ prices.MOPS_GASOLINE }}</div>
+                        {% if trends.MOPS_GASOLINE == 'up' %}
+                            <span class="badge badge-buy">BUY ▲</span>
+                        {% else %}
+                            <span class="badge badge-sell">SELL ▼</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="price-item">
+                        <div class="price-title">MOPS Diesel 10ppm (ဒီဇယ်)</div>
+                        <div class="price-value">{{ prices.MOPS_DIESEL }}</div>
+                        {% if trends.MOPS_DIESEL == 'up' %}
+                            <span class="badge badge-buy">BUY ▲</span>
+                        {% else %}
+                            <span class="badge badge-sell">SELL ▼</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 class="center-title">📈 Technical Summary & Market Sentiment</h3>
+                
+                <div class="indicator-box">
+                    <div class="gauge-title">Summary Technical Indicators</div>
+                    <div class="gauge-badge">{{ signal }} 🟢</div>
+                </div>
+
+                <div class="sentiment-container">
+                    <div class="sentiment-bar">
+                        <div class="gauge-title">🐂 Bullish Community Sentiment</div>
+                        <div class="price-value bullish">{{ sentiment.bullish }}%</div>
+                    </div>
+                    <div class="sentiment-bar">
+                        <div class="gauge-title">🐻 Bearish Community Sentiment</div>
+                        <div class="price-value bearish">{{ sentiment.bearish }}%</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3>✍️ Admin Intel & Outlook</h3>
+                <div class="content-box">{{ admin_intel }}</div>
+            </div>
+            
+            <div class="card">
+                <h3>🤖 AI & Live Market, Military & Political Analysis</h3>
+                <div class="content-box">{{ ai_analysis }}</div>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return render_template_string(
+        html_template,
+        prices=prices,
+        trends=trends,
+        signal=signal,
+        sentiment=sentiment,
+        admin_intel=admin_intel,
+        ai_analysis=ai_analysis
+    )
+
+# ======= [ 7. CRON ROUTE ] =======
+@app.route("/run-bot")
+def run_bot_cron():
+    success = send_telegram_update()
+    if success:
+        return "4-hourly bot executed successfully and message sent to Telegram!", 200
+    else:
+        return "Failed to send message to Telegram", 500
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)

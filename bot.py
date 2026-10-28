@@ -37,7 +37,6 @@ def fetch_binance_market_data():
             "BRENT": "$110.89",
             "MOPS": "$105.50"
         }
-        # ဈေးတက်ရင် "up" (BUY - အစိမ်း)၊ ဈေးကျရင် "down" (SELL - အနီ) ဟု သတ်မှတ်နိုင်သည်
         trends = {
             "WTI": "up",
             "BRENT": "up",
@@ -267,14 +266,10 @@ def dashboard():
     </html>
     """
     
-    wti_trend = trends.get("WTI", "up")
-    brent_trend = trends.get("BRENT", "up")
-    mops_trend = trends.get("MOPS", "up")
-    
     return render_template_string(
         html_template,
         prices=prices,
-        trends={"WTI": wti_trend, "BRENT": brent_trend, "MOPS": MOPS_trend := mops_trend},
+        trends=trends,
         admin_intel=current_market_cache["admin_intel"],
         ai_analysis=current_market_cache["ai_analysis"]
     )

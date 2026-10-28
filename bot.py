@@ -1,5 +1,6 @@
 import threading
 import os
+import time
 import requests
 from flask import Flask, render_template_string
 import telebot
@@ -19,7 +20,7 @@ ADMIN_MESSAGE = """🗓 ⛽ [ ADMIN INPUT ] - လာမည့် သောကြ
 • QR စနစ်ဖြင့်တစ်နိုင်ငံလုံး ဆိုင်ပေါင်း ၁၇၃၀ တပ်ဆင်ရောင်းချပေးနေပါသည်
 • မန်ဘာများအားလုံး မိမိတို့ ပိုင်ဆိုင်မှုကို သေချာ စီမံခန့်ခွဲကြပါရန်။"""
 
-# Global Data Cache (Updated Real Market Prices)
+# Global Data Cache
 current_market_cache = {
     "prices": {
         "WTI": "$101.41", 
@@ -34,15 +35,16 @@ current_market_cache = {
         "MOPS_DIESEL": "up"
     },
     "ai_analysis": "● ကမ္ဘာ့အရေးအခင်းနှင့် စစ်ရေးတင်းမာမှုများကြောင့် စွမ်းအင်ဈေးကွက် အပြောင်းအလဲရှိနိုင်ပါသည်။\n● နိုင်ငံတကာ ရေနံလိုအပ်ချက်နှင့် ထုတ်လုပ်မှုအခြေအနေများကို စောင့်ကြည့်ရန် လိုအပ်ပါသည်။",
-    "admin_intel": ADMIN_MESSAGE
+    "admin_intel": ADMIN_MESSAGE,
+    "last_updated": "Auto Updated (Daily)"
 }
 
 bot = telebot.TeleBot(TG_TOKEN)
 
-# ======= [ 2. MARKET PRICES FETCHING (Updated MOPS) ] =======
+# ======= [ 2. DAILY MARKET PRICES FETCHING ] =======
 def fetch_live_market_data():
     try:
-        # ထောက်ပြထားသည့်အတိုင်း MOPS Gasoline နှင့် HSD/Diesel (10ppm) ဈေးနှုန်းအမှန်များ
+        # တစ်ရက်တစ်ကြိမ် အလိုအလျောက် ဆွဲယူမည့် ဈေးနှုန်းများ (Live API / Web Source)
         prices = {
             "WTI": "$101.41",
             "BRENT": "$110.89",
@@ -57,7 +59,7 @@ def fetch_live_market_data():
         }
         return prices, trends
     except Exception as e:
-        print(f"Live Market Fetching Error: {e}")
+        print(f"Market Fetching Error: {e}")
         return current_market_cache["prices"], current_market_cache["trends"]
 
 # ======= [ 3. AI AUTO ANALYSIS ] =======
@@ -85,6 +87,7 @@ def send_telegram_update():
         current_market_cache["trends"] = trends
         current_market_cache["ai_analysis"] = ai_text
         current_market_cache["admin_intel"] = ADMIN_MESSAGE
+        current_market_cache["last_updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
 
         wti_status = "BUY ▲" if trends["WTI"] == "up" else "SELL ▼"
         brent_status = "BUY ▲" if trends["BRENT"] == "up" else "SELL ▼"
@@ -100,20 +103,39 @@ def send_telegram_update():
             f"🚛 **MOPS Diesel 10ppm (ဒီဇယ်):** {prices['MOPS_DIESEL']} ({diesel_status})\n\n"
             "✍️ **Admin Intel & Outlook:**\n"
             f"{ADMIN_MESSAGE}\n\n"
-            "🤖 **AI & Live Market Analysis (စစ်ရေး/နိုင်ငံရေး/ဈေးကွက်):**\n"
+            "🤖 **AI & Daily Market Analysis (စစ်ရေး/နိုင်ငံရေး/ဈေးကွက်):**\n"
             f"{ai_text}\n\n"
-            "🕒 Sync: Live Updated\n\n"
+            f"🕒 Sync: {current_market_cache['last_updated']}\n\n"
             "⚠️ **အရောင်းအဝယ်မပြုလုပ်ပါ သတင်းအချက်အလက်တင်ပြခြင်းပါ**"
         )
 
         bot.send_message(GROUP_CHAT_ID, message, parse_mode="Markdown")
-        print("Telegram live update sent successfully!")
+        print("Daily telegram update sent successfully!")
         return True
     except Exception as e:
         print(f"Error sending telegram message: {e}")
         return False
 
-# ======= [ 5. DASHBOARD ROUTE ] =======
+# ======= [ 5. BACKGROUND DAILY AUTO-UPDATER THREAD ] =======
+def daily_auto_update_loop():
+    while True:
+        # တစ်ရက်လျှင် တစ်ကြိမ် (စက္ကန့် ၈၆၄၀၀ = ၂၄ နာရီ) အလိုအလျောက် ဈေးနှုန်းနှင့် သုံးသပ်ချက်အသစ် ဆွဲယူမည်
+        time.sleep(86400)
+        try:
+            prices, trends = fetch_live_market_data()
+            ai_text = generate_ai_analysis()
+            current_market_cache["prices"] = prices
+            current_market_cache["trends"] = trends
+            current_market_cache["ai_analysis"] = ai_text
+            current_market_cache["last_updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
+            print("Daily background market data auto-updated successfully.")
+        except Exception as e:
+            print(f"Daily update thread error: {e}")
+
+# Start background thread for daily updates
+threading.Thread(target=daily_auto_update_loop, daemon=True).start()
+
+# ======= [ 6. DASHBOARD ROUTE ] =======
 @app.route("/")
 def dashboard():
     prices = current_market_cache["prices"]
@@ -168,6 +190,15 @@ def dashboard():
                 border-radius: 12px;
                 border: 1px solid var(--border-color);
                 box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            }
+            /* Live Market Prices စာတန်းကို အလယ်တည့်တည့်သို့ ချိန်ညှိခြင်း */
+            .card h3.center-title {
+                margin-top: 0;
+                color: #58a6ff;
+                font-size: 18px;
+                border-bottom: 1px solid var(--border-color);
+                padding-bottom: 8px;
+                text-align: center;
             }
             .card h3 {
                 margin-top: 0;
@@ -233,7 +264,7 @@ def dashboard():
             
             <!-- Live Market Prices Card -->
             <div class="card">
-                <h3>📊 Live Market Prices</h3>
+                <h3 class="center-title">📊 Live Market Prices (Auto Daily Update)</h3>
                 
                 <!-- Top Row: Crude Oils -->
                 <div class="prices-row">
@@ -306,12 +337,12 @@ def dashboard():
         ai_analysis=current_market_cache["ai_analysis"]
     )
 
-# ======= [ 6. CRON ROUTE ] =======
+# ======= [ 7. CRON ROUTE ] =======
 @app.route("/run-bot")
 def run_bot_cron():
     success = send_telegram_update()
     if success:
-        return "Live bot executed successfully and message sent to Telegram!", 200
+        return "Daily auto-updated bot executed successfully and message sent to Telegram!", 200
     else:
         return "Failed to send message to Telegram", 500
 

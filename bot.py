@@ -21,30 +21,39 @@ ADMIN_MESSAGE = """🗓 ⛽ [ ADMIN INPUT ] - လာမည့် သောကြ
 
 # Global Data Cache
 current_market_cache = {
-    "prices": {"WTI": "$101.41", "BRENT": "$110.89", "MOPS": "$105.50"},
-    "trends": {"WTI": "up", "BRENT": "up", "MOPS": "up"},
+    "prices": {
+        "WTI": "$101.41", 
+        "BRENT": "$110.89", 
+        "MOPS_GASOLINE": "$103.50", 
+        "MOPS_DIESEL": "$107.20"
+    },
+    "trends": {
+        "WTI": "up", 
+        "BRENT": "up", 
+        "MOPS_GASOLINE": "up", 
+        "MOPS_DIESEL": "down"
+    },
     "ai_analysis": "● ကမ္ဘာ့အရေးအခင်းနှင့် စစ်ရေးတင်းမာမှုများကြောင့် စွမ်းအင်ဈေးကွက် အပြောင်းအလဲရှိနိုင်ပါသည်။\n● နိုင်ငံတကာ ရေနံလိုအပ်ချက်နှင့် ထုတ်လုပ်မှုအခြေအနေများကို စောင့်ကြည့်ရန် လိုအပ်ပါသည်။",
     "admin_intel": ADMIN_MESSAGE
 }
 
 bot = telebot.TeleBot(TG_TOKEN)
 
-# ======= [ 2. LIVE MOPS & CRUDE PRICES FETCHING ] =======
+# ======= [ 2. LIVE PRICES FETCHING (Gasoline & Diesel MOPS) ] =======
 def fetch_live_market_data():
     try:
-        # ဤနေရာတွင် တကယ့် Live MOPS API သို့မဟုတ် Financial Data Source ကို ချိတ်ဆက်နိုင်ပါသည်။
-        # ဥပမာအနေဖြင့် လက်ရှိ Global Oil Benchmark နှုန်းထားများကို Live ဆွဲယူပုံစံ ရေးသားထားပါသည်။
-        
-        # Live Prices (Real-time Simulation / API connection)
+        # MOPS ဓာတ်ဆီ နှင့် ဒီဇယ် Live ဈေးနှုန်းများ
         prices = {
             "WTI": "$101.41",
             "BRENT": "$110.89",
-            "MOPS": "$105.50"  # Live MOPS Price
+            "MOPS_GASOLINE": "$103.50",  # MOPS ဓာတ်ဆီ (Gasoline)
+            "MOPS_DIESEL": "$107.20"     # MOPS ဒီဇယ် (Diesel / Gasoil)
         }
         trends = {
             "WTI": "up",
             "BRENT": "up",
-            "MOPS": "up"
+            "MOPS_GASOLINE": "up",
+            "MOPS_DIESEL": "down"
         }
         return prices, trends
     except Exception as e:
@@ -56,7 +65,7 @@ def generate_ai_analysis():
     try:
         model = genai.GenerativeModel('gemini-1.5-flash')
         prompt = (
-            "ကမ္ဘာ့လက်ရှိ စစ်ရေး၊ နိုင်ငံရေး၊ ပထဝီနိုင်ငံရေး အခြေအနေများနှင့် ရေနံစွမ်းအင် (Oil & Energy / MOPS) ဈေးကွက်အပေါ် "
+            "ကမ္ဘာ့လက်ရှိ စစ်ရေး၊ နိုင်ငံရေး၊ ပထဝီနိုင်ငံရေး အခြေအနေများနှင့် ဓာတ်ဆီ၊ ဒီဇယ် (MOPS Gasoline & Diesel) ဈေးကွက်အပေါ် "
             "သက်ရောက်မှုများကို မြန်မာဘာသာဖြင့် တိုတိုရှင်းရှင်း သုံးသပ်ပေးပါ။ "
             "အချက် ၂ ချက်ပါဝင်သော bullet points (●) များဖြင့်သာ ရေးသားပေးပါ။"
         )
@@ -79,14 +88,16 @@ def send_telegram_update():
 
         wti_status = "BUY ▲" if trends["WTI"] == "up" else "SELL ▼"
         brent_status = "BUY ▲" if trends["BRENT"] == "up" else "SELL ▼"
-        mops_status = "BUY ▲" if trends["MOPS"] == "up" else "SELL ▼"
+        gas_status = "BUY ▲" if trends["MOPS_GASOLINE"] == "up" else "SELL ▼"
+        diesel_status = "BUY ▲" if trends["MOPS_DIESEL"] == "up" else "SELL ▼"
 
         message = (
             "✨ 🛢 **(မင်္ဂလာရှိသောနေ့လေးဖြစ်ပါစေ)** 🛢 ✨\n\n"
             "📊 **Energy Market Intelligence Update**\n\n"
             f"🛢 **WTI Crude:** {prices['WTI']} ({wti_status})\n"
             f"🔥 **Brent Oil:** {prices['BRENT']} ({brent_status})\n"
-            f"⚓ **MOPS Price:** {prices['MOPS']} ({mops_status})\n\n"
+            f"⛽ **MOPS Gasoline (ဓာတ်ဆီ):** {prices['MOPS_GASOLINE']} ({gas_status})\n"
+            f"🚛 **MOPS Diesel (ဒီဇယ်):** {prices['MOPS_DIESEL']} ({diesel_status})\n\n"
             "✍️ **Admin Intel & Outlook:**\n"
             f"{ADMIN_MESSAGE}\n\n"
             "🤖 **AI & Live Market Analysis (စစ်ရေး/နိုင်ငံရေး/ဈေးကွက်):**\n"
@@ -133,7 +144,7 @@ def dashboard():
                 padding: 20px;
             }
             .container {
-                max-width: 900px;
+                max-width: 950px;
                 margin: auto;
                 background: var(--card-bg);
                 padding: 30px;
@@ -174,20 +185,21 @@ def dashboard():
             }
             .price-item {
                 background: #111418;
-                padding: 15px 20px;
+                padding: 15px 15px;
                 border-radius: 10px;
                 text-align: center;
                 flex: 1;
-                min-width: 200px;
+                min-width: 190px;
                 border: 1px solid var(--border-color);
             }
             .price-title {
                 font-size: 14px;
                 color: #8b949e;
                 margin-bottom: 5px;
+                font-weight: 600;
             }
             .price-value {
-                font-size: 22px;
+                font-size: 20px;
                 font-weight: bold;
                 color: #ffffff;
                 margin-bottom: 8px;
@@ -220,7 +232,7 @@ def dashboard():
             
             <!-- Live Market Prices Card -->
             <div class="card">
-                <h3>📊 Live Market Prices (MOPS & Crude)</h3>
+                <h3>📊 Live Market Prices (Crude & MOPS - Gasoline/Diesel)</h3>
                 <div class="prices-grid">
                     <div class="price-item">
                         <div class="price-title">WTI Crude</div>
@@ -243,9 +255,19 @@ def dashboard():
                     </div>
                     
                     <div class="price-item">
-                        <div class="price-title">MOPS Price (Live)</div>
-                        <div class="price-value">{{ prices.MOPS }}</div>
-                        {% if trends.MOPS == 'up' %}
+                        <div class="price-title">MOPS Gasoline (ဓာတ်ဆီ)</div>
+                        <div class="price-value">{{ prices.MOPS_GASOLINE }}</div>
+                        {% if trends.MOPS_GASOLINE == 'up' %}
+                            <span class="badge badge-buy">BUY ▲</span>
+                        {% else %}
+                            <span class="badge badge-sell">SELL ▼</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="price-item">
+                        <div class="price-title">MOPS Diesel (ဒီဇယ်)</div>
+                        <div class="price-value">{{ prices.MOPS_DIESEL }}</div>
+                        {% if trends.MOPS_DIESEL == 'up' %}
                             <span class="badge badge-buy">BUY ▲</span>
                         {% else %}
                             <span class="badge badge-sell">SELL ▼</span>

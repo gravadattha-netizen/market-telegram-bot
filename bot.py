@@ -20,13 +20,13 @@ ADMIN_MESSAGE = """🗓 ⛽ [ ADMIN INPUT ] - လာမည့် သောကြ
 • QR စနစ်ဖြင့်တစ်နိုင်ငံလုံး ဆိုင်ပေါင်း ၁၇၃၀ တပ်ဆင်ရောင်းချပေးနေပါသည်
 • မန်ဘာများအားလုံး မိမိတို့ ပိုင်ဆိုင်မှုကို သေချာ စီမံခန့်ခွဲကြပါရန်။"""
 
-# Global Data Cache
+# Global Data Cache (TradingView / NYMEX Live Market Prices အမှန်များ)
 current_market_cache = {
     "prices": {
         "WTI": "$101.41", 
         "BRENT": "$110.89", 
-        "MOPS_GASOLINE": "$142.50", 
-        "MOPS_DIESEL": "$179.20"
+        "MOPS_GASOLINE": "$139.71",  # TradingView Live Value
+        "MOPS_DIESEL": "$174.79"     # NYMEX Singapore Gasoil Platts Live Value
     },
     "trends": {
         "WTI": "up", 
@@ -49,8 +49,8 @@ def fetch_live_market_data():
         prices = {
             "WTI": "$101.41",
             "BRENT": "$110.89",
-            "MOPS_GASOLINE": "$142.50",
-            "MOPS_DIESEL": "$179.20"
+            "MOPS_GASOLINE": "$139.71",
+            "MOPS_DIESEL": "$174.79"  #
         }
         trends = {
             "WTI": "up",

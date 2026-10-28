@@ -14,7 +14,7 @@ GOOGLE_API_KEY = "AIzaSyAKM5IAugwBdKxrWQ__igkDwjwITW6f2kc"
 
 genai.configure(api_key=GOOGLE_API_KEY)
 
-# ======= [ 1. ADMIN INPUT SECTION (ဒီမှာ Admin သတင်း ကိုယ်တိုင် ရေးပါ) ] =======
+# ======= [ 1. ADMIN INPUT SECTION ] =======
 ADMIN_MESSAGE = """🗓 ⛽ [ ADMIN INPUT ] - လာမည့် သောကြာနေ့ 30.10.2026 PPRD ဈေး HSD/PD အနေဖြင့် 100 ကျပ်ခန့် တက်နိုင် ပြီး ပေါက်စုံ ဈေး 92/95 မှာ ဈေးအနည်းငယ် ကျနိုင် ပါသည်
 • QR စနစ်ဖြင့်တစ်နိုင်ငံလုံး ဆိုင်ပေါင်း ၁၇၃၀ တပ်ဆင်ရောင်းချပေးနေပါသည်
 • မန်ဘာများအားလုံး မိမိတို့ ပိုင်ဆိုင်မှုကို သေချာ စီမံခန့်ခွဲကြပါရန်။"""
@@ -39,15 +39,14 @@ current_market_cache = {
 
 bot = telebot.TeleBot(TG_TOKEN)
 
-# ======= [ 2. LIVE PRICES FETCHING (Gasoline & Diesel MOPS) ] =======
+# ======= [ 2. MARKET PRICES FETCHING ] =======
 def fetch_live_market_data():
     try:
-        # MOPS ဓာတ်ဆီ နှင့် ဒီဇယ် Live ဈေးနှုန်းများ
         prices = {
             "WTI": "$101.41",
             "BRENT": "$110.89",
-            "MOPS_GASOLINE": "$103.50",  # MOPS ဓာတ်ဆီ (Gasoline)
-            "MOPS_DIESEL": "$107.20"     # MOPS ဒီဇယ် (Diesel / Gasoil)
+            "MOPS_GASOLINE": "$103.50",
+            "MOPS_DIESEL": "$107.20"
         }
         trends = {
             "WTI": "up",
@@ -60,7 +59,7 @@ def fetch_live_market_data():
         print(f"Live Market Fetching Error: {e}")
         return current_market_cache["prices"], current_market_cache["trends"]
 
-# ======= [ 3. AI AUTO ANALYSIS (Gemini) ] =======
+# ======= [ 3. AI AUTO ANALYSIS ] =======
 def generate_ai_analysis():
     try:
         model = genai.GenerativeModel('gemini-1.5-flash')
@@ -113,7 +112,7 @@ def send_telegram_update():
         print(f"Error sending telegram message: {e}")
         return False
 
-# ======= [ 5. BEAUTIFUL DASHBOARD ROUTE ] =======
+# ======= [ 5. REDESIGNED DASHBOARD ROUTE ] =======
 @app.route("/")
 def dashboard():
     prices = current_market_cache["prices"]
@@ -176,20 +175,23 @@ def dashboard():
                 border-bottom: 1px solid var(--border-color);
                 padding-bottom: 8px;
             }
+            /* Row layout for Crude Oil */
+            .prices-row {
+                display: flex;
+                gap: 15px;
+                margin-bottom: 15px;
+            }
+            /* Grid layout for MOPS */
             .prices-grid {
                 display: flex;
-                justify-content: space-around;
-                flex-wrap: wrap;
                 gap: 15px;
-                margin-top: 15px;
             }
             .price-item {
                 background: #111418;
-                padding: 15px 15px;
+                padding: 15px;
                 border-radius: 10px;
                 text-align: center;
                 flex: 1;
-                min-width: 190px;
                 border: 1px solid var(--border-color);
             }
             .price-title {
@@ -232,8 +234,10 @@ def dashboard():
             
             <!-- Live Market Prices Card -->
             <div class="card">
-                <h3>📊 Live Market Prices (Crude & MOPS - Gasoline/Diesel)</h3>
-                <div class="prices-grid">
+                <h3>📊 Live Market Prices</h3>
+                
+                <!-- Top Row: Crude Oils -->
+                <div class="prices-row">
                     <div class="price-item">
                         <div class="price-title">WTI Crude</div>
                         <div class="price-value">{{ prices.WTI }}</div>
@@ -253,7 +257,10 @@ def dashboard():
                             <span class="badge badge-sell">SELL ▼</span>
                         {% endif %}
                     </div>
-                    
+                </div>
+
+                <!-- Bottom Row: MOPS Prices (Gasoline & Diesel) -->
+                <div class="prices-grid">
                     <div class="price-item">
                         <div class="price-title">MOPS Gasoline (ဓာတ်ဆီ)</div>
                         <div class="price-value">{{ prices.MOPS_GASOLINE }}</div>
@@ -300,7 +307,7 @@ def dashboard():
         ai_analysis=current_market_cache["ai_analysis"]
     )
 
-# ======= [ 6. CRON ROUTE FOR TELEGRAM AUTO-SEND ] =======
+# ======= [ 6. CRON ROUTE ] =======
 @app.route("/run-bot")
 def run_bot_cron():
     success = send_telegram_update()

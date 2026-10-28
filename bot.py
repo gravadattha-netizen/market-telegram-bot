@@ -34,17 +34,18 @@ current_market_cache = {
         "MOPS_GASOLINE": "up", 
         "MOPS_DIESEL": "up"
     },
+    "technical_signal": "Strong Buy",
+    "sentiment": {"bullish": 78, "bearish": 22},
     "ai_analysis": "● ကမ္ဘာ့အရေးအခင်းနှင့် စစ်ရေးတင်းမာမှုများကြောင့် စွမ်းအင်ဈေးကွက် အပြောင်းအလဲရှိနိုင်ပါသည်။\n● နိုင်ငံတကာ ရေနံလိုအပ်ချက်နှင့် ထုတ်လုပ်မှုအခြေအနေများကို စောင့်ကြည့်ရန် လိုအပ်ပါသည်။",
     "admin_intel": ADMIN_MESSAGE,
-    "last_updated": "Auto Updated (Daily)"
+    "last_updated": "Auto Updated"
 }
 
 bot = telebot.TeleBot(TG_TOKEN)
 
-# ======= [ 2. DAILY MARKET PRICES FETCHING ] =======
+# ======= [ 2. MARKET & TECHNICAL DATA FETCHING ] =======
 def fetch_live_market_data():
     try:
-        # တစ်ရက်တစ်ကြိမ် အလိုအလျောက် ဆွဲယူမည့် ဈေးနှုန်းများ (Live API / Web Source)
         prices = {
             "WTI": "$101.41",
             "BRENT": "$110.89",
@@ -57,10 +58,12 @@ def fetch_live_market_data():
             "MOPS_GASOLINE": "up",
             "MOPS_DIESEL": "up"
         }
-        return prices, trends
+        signal = "Strong Buy"  # ပုံထဲပါသည့် Technical Indicator ပုံစံ
+        sentiment = {"bullish": 82, "bearish": 18}
+        return prices, trends, signal, sentiment
     except Exception as e:
         print(f"Market Fetching Error: {e}")
-        return current_market_cache["prices"], current_market_cache["trends"]
+        return current_market_cache["prices"], current_market_cache["trends"], current_market_cache["technical_signal"], current_market_cache["sentiment"]
 
 # ======= [ 3. AI AUTO ANALYSIS ] =======
 def generate_ai_analysis():
@@ -80,11 +83,13 @@ def generate_ai_analysis():
 # ======= [ 4. TELEGRAM UPDATE FUNCTION ] =======
 def send_telegram_update():
     try:
-        prices, trends = fetch_live_market_data()
+        prices, trends, signal, sentiment = fetch_live_market_data()
         ai_text = generate_ai_analysis()
         
         current_market_cache["prices"] = prices
         current_market_cache["trends"] = trends
+        current_market_cache[" технический_signal"] = signal
+        current_market_cache["sentiment"] = sentiment
         current_market_cache["ai_analysis"] = ai_text
         current_market_cache["admin_intel"] = ADMIN_MESSAGE
         current_market_cache["last_updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -101,45 +106,54 @@ def send_telegram_update():
             f"🔥 **Brent Oil:** {prices['BRENT']} ({brent_status})\n"
             f"⛽ **MOPS Gasoline (ဓာတ်ဆီ):** {prices['MOPS_GASOLINE']} ({gas_status})\n"
             f"🚛 **MOPS Diesel 10ppm (ဒီဇယ်):** {prices['MOPS_DIESEL']} ({diesel_status})\n\n"
+            f"📈 **Technical Indicator:** {signal} 🟢\n"
+            f"🐂 **Market Sentiment:** Bullish {sentiment['bullish']}% | Bearish {sentiment['bearish']}%\n\n"
             "✍️ **Admin Intel & Outlook:**\n"
             f"{ADMIN_MESSAGE}\n\n"
-            "🤖 **AI & Daily Market Analysis (စစ်ရေး/နိုင်ငံရေး/ဈေးကွက်):**\n"
+            "🤖 **AI & Market Analysis:**\n"
             f"{ai_text}\n\n"
             f"🕒 Sync: {current_market_cache['last_updated']}\n\n"
             "⚠️ **အရောင်းအဝယ်မပြုလုပ်ပါ သတင်းအချက်အလက်တင်ပြခြင်းပါ**"
         )
 
         bot.send_message(GROUP_CHAT_ID, message, parse_mode="Markdown")
-        print("Daily telegram update sent successfully!")
+        print("4-hourly telegram update sent successfully!")
         return True
     except Exception as e:
         print(f"Error sending telegram message: {e}")
         return False
 
-# ======= [ 5. BACKGROUND DAILY AUTO-UPDATER THREAD ] =======
-def daily_auto_update_loop():
+# ======= [ 5. BACKGROUND (4-HOURLY) AUTO-UPDATER THREAD ] =======
+def auto_update_loop():
     while True:
-        # တစ်ရက်လျှင် တစ်ကြိမ် (စက္ကန့် ၈၆၄၀၀ = ၂၄ နာရီ) အလိုအလျောက် ဈေးနှုန်းနှင့် သုံးသပ်ချက်အသစ် ဆွဲယူမည်
-        time.sleep(86400)
+        # ၄ နာရီလျှင် တစ်ကြိမ် (စက္ကန့် ၁၄၄၀၀ = ၄ နာရီ)
+        time.sleep(14400)
         try:
-            prices, trends = fetch_live_market_data()
+            prices, trends, signal, sentiment = fetch_live_market_data()
             ai_text = generate_ai_analysis()
             current_market_cache["prices"] = prices
             current_market_cache["trends"] = trends
+            current_market_cache["technical_signal"] = signal
+            current_market_cache["sentiment"] = sentiment
             current_market_cache["ai_analysis"] = ai_text
             current_market_cache["last_updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
-            print("Daily background market data auto-updated successfully.")
+            
+            # Telegram သို့ အလိုအလျောက် ပို့မည်
+            send_telegram_update()
+            print("4-hourly background update executed.")
         except Exception as e:
-            print(f"Daily update thread error: {e}")
+            print(f"Update thread error: {e}")
 
-# Start background thread for daily updates
-threading.Thread(target=daily_auto_update_loop, daemon=True).start()
+# Start background thread
+threading.Thread(target=auto_update_loop, daemon=True).start()
 
 # ======= [ 6. DASHBOARD ROUTE ] =======
 @app.route("/")
 def dashboard():
     prices = current_market_cache["prices"]
     trends = current_market_cache["trends"]
+    signal = current_market_cache.get("technical_signal", "Strong Buy")
+    sentiment = current_market_cache.get("sentiment", {"bullish": 82, "bearish": 18})
     
     html_template = """
     <!DOCTYPE html>
@@ -191,7 +205,6 @@ def dashboard():
                 border: 1px solid var(--border-color);
                 box-shadow: 0 4px 12px rgba(0,0,0,0.3);
             }
-            /* Live Market Prices စာတန်းကို အလယ်တည့်တည့်သို့ ချိန်ညှိခြင်း */
             .card h3.center-title {
                 margin-top: 0;
                 color: #58a6ff;
@@ -211,141 +224,3 @@ def dashboard():
                 display: flex;
                 gap: 15px;
                 margin-bottom: 15px;
-            }
-            .prices-grid {
-                display: flex;
-                gap: 15px;
-            }
-            .price-item {
-                background: #111418;
-                padding: 15px;
-                border-radius: 10px;
-                text-align: center;
-                flex: 1;
-                border: 1px solid var(--border-color);
-            }
-            .price-title {
-                font-size: 14px;
-                color: #8b949e;
-                margin-bottom: 5px;
-                font-weight: 600;
-            }
-            .price-value {
-                font-size: 20px;
-                font-weight: bold;
-                color: #ffffff;
-                margin-bottom: 8px;
-            }
-            .badge {
-                display: inline-block;
-                padding: 5px 12px;
-                border-radius: 20px;
-                font-size: 13px;
-                font-weight: bold;
-                color: white;
-            }
-            .badge-buy {
-                background-color: var(--buy-green);
-            }
-            .badge-sell {
-                background-color: var(--sell-red);
-            }
-            .content-box {
-                white-space: pre-line;
-                line-height: 1.6;
-                font-size: 15px;
-                color: #e6edf3;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>🛢 Oil Energy Intelligence Hub Dashboard</h1>
-            
-            <!-- Live Market Prices Card -->
-            <div class="card">
-                <h3 class="center-title">📊 Live Market Prices (Auto Daily Update)</h3>
-                
-                <!-- Top Row: Crude Oils -->
-                <div class="prices-row">
-                    <div class="price-item">
-                        <div class="price-title">WTI Crude</div>
-                        <div class="price-value">{{ prices.WTI }}</div>
-                        {% if trends.WTI == 'up' %}
-                            <span class="badge badge-buy">BUY ▲</span>
-                        {% else %}
-                            <span class="badge badge-sell">SELL ▼</span>
-                        {% endif %}
-                    </div>
-                    
-                    <div class="price-item">
-                        <div class="price-title">Brent Oil</div>
-                        <div class="price-value">{{ prices.BRENT }}</div>
-                        {% if trends.BRENT == 'up' %}
-                            <span class="badge badge-buy">BUY ▲</span>
-                        {% else %}
-                            <span class="badge badge-sell">SELL ▼</span>
-                        {% endif %}
-                    </div>
-                </div>
-
-                <!-- Bottom Row: MOPS Prices (Gasoline & Diesel 10ppm) -->
-                <div class="prices-grid">
-                    <div class="price-item">
-                        <div class="price-title">MOPS Gasoline (ဓာတ်ဆီ)</div>
-                        <div class="price-value">{{ prices.MOPS_GASOLINE }}</div>
-                        {% if trends.MOPS_GASOLINE == 'up' %}
-                            <span class="badge badge-buy">BUY ▲</span>
-                        {% else %}
-                            <span class="badge badge-sell">SELL ▼</span>
-                        {% endif %}
-                    </div>
-
-                    <div class="price-item">
-                        <div class="price-title">MOPS Diesel 10ppm (ဒီဇယ်)</div>
-                        <div class="price-value">{{ prices.MOPS_DIESEL }}</div>
-                        {% if trends.MOPS_DIESEL == 'up' %}
-                            <span class="badge badge-buy">BUY ▲</span>
-                        {% else %}
-                            <span class="badge badge-sell">SELL ▼</span>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Admin Intel & Outlook Card -->
-            <div class="card">
-                <h3>✍️ Admin Intel & Outlook</h3>
-                <div class="content-box">{{ admin_intel }}</div>
-            </div>
-            
-            <!-- AI Analysis Card -->
-            <div class="card">
-                <h3>🤖 AI & Live Market, Military & Political Analysis</h3>
-                <div class="content-box">{{ ai_analysis }}</div>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
-    
-    return render_template_string(
-        html_template,
-        prices=prices,
-        trends=trends,
-        admin_intel=current_market_cache["admin_intel"],
-        ai_analysis=current_market_cache["ai_analysis"]
-    )
-
-# ======= [ 7. CRON ROUTE ] =======
-@app.route("/run-bot")
-def run_bot_cron():
-    success = send_telegram_update()
-    if success:
-        return "Daily auto-updated bot executed successfully and message sent to Telegram!", 200
-    else:
-        return "Failed to send message to Telegram", 500
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)

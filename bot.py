@@ -2,7 +2,6 @@ import threading
 import os
 import time
 import requests
-from bs4 import BeautifulSoup
 from flask import Flask, render_template_string
 import telebot
 import google.generativeai as genai
@@ -17,11 +16,10 @@ GOOGLE_API_KEY = "AIzaSyAKM5IAugwBdKxrWQ__igkDwjwITW6f2kc"
 genai.configure(api_key=GOOGLE_API_KEY)
 
 # ======= [ 1. ADMIN INPUT SECTION ] =======
-ADMIN_MESSAGE = """🗓 ⛽ [ ADMIN INPUT ] 
-• QR စနစ်ဖြင့်တစ်နိုင်ငံလုံး ဆိုင်ပေါင်း ၁၉၂၇ ဆိုင် တပ်ဆင်ရောင်းချပေးနေပါသည်
+ADMIN_MESSAGE = """🗓 ⛽ [ ADMIN INPUT ] - လာမည့် သောကြာနေ့ 30.10.2026 PPRD ဈေး HSD/PD အနေဖြင့် 100 ကျပ်ခန့် တက်နိုင် ပြီး ပေါက်စုံ ဈေး 92/95 မှာ ဈေးအနည်းငယ် ကျနိုင် ပါသည်
+• QR စနစ်ဖြင့်တစ်နိုင်ငံလုံး ဆိုင်ပေါင်း ၁၇၃၀ တပ်ဆင်ရောင်းချပေးနေပါသည်
 • မန်ဘာများအားလုံး မိမိတို့ ပိုင်ဆိုင်မှုကို သေချာ စီမံခန့်ခွဲကြပါရန်။"""
 
-# Global Data Cache (TradingView Live Verified Prices)
 current_market_cache = {
     "prices": {
         "WTI": "$101.41", 
@@ -44,20 +42,13 @@ current_market_cache = {
 
 bot = telebot.TeleBot(TG_TOKEN)
 
-# ======= [ 2. LIVE MARKET & TECHNICAL DATA FETCHING ] =======
 def fetch_live_market_data():
     prices = current_market_cache["prices"].copy()
     trends = current_market_cache["trends"].copy()
-    
-    # Live verified values matching TradingView watchlists
-    prices["MOPS_GASOLINE"] = "$129.86"
-    prices["MOPS_DIESEL"] = "$173.70"
-    
     signal = "Strong Buy"
     sentiment = {"bullish": 82, "bearish": 18}
     return prices, trends, signal, sentiment
 
-# ======= [ 3. AI AUTO ANALYSIS ] =======
 def generate_ai_analysis():
     try:
         model = genai.GenerativeModel('gemini-1.5-flash')
@@ -72,7 +63,6 @@ def generate_ai_analysis():
         print(f"AI Analysis Error: {e}")
         return current_market_cache["ai_analysis"]
 
-# ======= [ 4. TELEGRAM UPDATE FUNCTION ] =======
 def send_telegram_update():
     try:
         prices, trends, signal, sentiment = fetch_live_market_data()
@@ -92,49 +82,44 @@ def send_telegram_update():
         diesel_status = "BUY ▲" if trends["MOPS_DIESEL"] == "up" else "SELL ▼"
 
         message = (
-            "✨ 🛢 **(မင်္ဂလာရှိသောနေ့လေးဖြစ်ပါစေ)** 🛢 ✨\n\n"
-            "📊 **Energy Market Intelligence Update**\n\n"
-            f"🛢 **WTI Crude:** {prices['WTI']} ({wti_status})\n"
-            f"🔥 **Brent Oil:** {prices['BRENT']} ({brent_status})\n"
-            f"⛽ **MOPS Gasoline (ဓာတ်ဆီ N1B2):** {prices['MOPS_GASOLINE']} ({gas_status})\n"
-            f"🚛 **MOPS Diesel 10ppm (ဒီဇယ် SGB2):** {prices['MOPS_DIESEL']} ({diesel_status})\n\n"
-            f"📈 **Technical Indicator:** {signal} 🟢\n"
-            f"🐂 **Market Sentiment:** Bullish {sentiment['bullish']}% | Bearish {sentiment['bearish']}%\n\n"
-            "✍️ **Admin Intel & Outlook:**\n"
+            "✨ (မင်္ဂလာရှိသောနေ့လေးဖြစ်ပါစေ) ✨\n\n"
+            "📊 Energy Market Intelligence Update\n\n"
+            f"🛢 WTI Crude: {prices['WTI']} ({wti_status})\n"
+            f"🔥 Brent Oil: {prices['BRENT']} ({brent_status})\n"
+            f"⛽ MOPS Gasoline (ဓာတ်ဆီ N1B2): {prices['MOPS_GASOLINE']} ({gas_status})\n"
+            f"🚛 MOPS Diesel 10ppm (ဒီဇယ် SGB2): {prices['MOPS_DIESEL']} ({diesel_status})\n\n"
+            f"📈 Technical Indicator: {signal} 🟢\n"
+            f"🐂 Market Sentiment: Bullish {sentiment['bullish']}% | Bearish {sentiment['bearish']}%\n\n"
+            "✍️ Admin Intel & Outlook:\n"
             f"{ADMIN_MESSAGE}\n\n"
-            "🤖 **AI & Market Analysis:**\n"
+            "🤖 AI & Market Analysis:\n"
             f"{ai_text}\n\n"
             f"🕒 Sync: {current_market_cache['last_updated']}\n\n"
-            "⚠️ **အရောင်းအဝယ်မပြုလုပ်ပါ သတင်းအချက်အလက်တင်ပြခြင်းပါ**"
+            "⚠️ အရောင်းအဝယ်မပြုလုပ်ပါ သတင်းအချက်အလက်တင်ပြခြင်းပါ"
         )
 
-        bot.send_message(GROUP_CHAT_ID, message, parse_mode="Markdown")
+        bot.send_message(GROUP_CHAT_ID, message)
         print("Telegram update sent successfully to group!")
         return True
     except Exception as e:
         print(f"Error sending telegram message: {e}")
         return False
 
-# ======= [ 5. BACKGROUND (4-HOURLY) AUTO-UPDATER THREAD ] =======
 def auto_update_loop():
     while True:
-        time.sleep(14400) # 4 hours
+        time.sleep(14400)
         try:
             prices, trends, signal, sentiment = fetch_live_market_data()
             ai_text = generate_ai_analysis()
             current_market_cache["prices"] = prices
             current_market_cache["trends"] = trends
-            current_market_cache["technical_signal"] = signal
-            current_market_cache["sentiment"] = sentiment
             current_market_cache["ai_analysis"] = ai_text
-            current_market_cache["last_updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
             send_telegram_update()
         except Exception as e:
             print(f"Update thread error: {e}")
 
 threading.Thread(target=auto_update_loop, daemon=True).start()
 
-# ======= [ 6. DASHBOARD ROUTE ] =======
 @app.route("/")
 def dashboard():
     prices = current_market_cache["prices"]
@@ -246,12 +231,8 @@ def dashboard():
                 font-weight: bold;
                 color: white;
             }
-            .badge-buy {
-                background-color: var(--buy-green);
-            }
-            .badge-sell {
-                background-color: var(--sell-red);
-            }
+            .badge-buy { background-color: var(--buy-green); }
+            .badge-sell { background-color: var(--sell-red); }
             .indicator-box {
                 background: #111418;
                 padding: 15px;
@@ -381,25 +362,15 @@ def dashboard():
     </body>
     </html>
     """
-    
-    return render_template_string(
-        html_template,
-        prices=prices,
-        trends=trends,
-        signal=signal,
-        sentiment=sentiment,
-        admin_intel=admin_intel,
-        ai_analysis=ai_analysis
-    )
+    return render_template_string(html_template, prices=prices, trends=trends, signal=signal, sentiment=sentiment, admin_intel=admin_intel, ai_analysis=ai_analysis)
 
-# ======= [ 7. CRON ROUTE ] =======
 @app.route("/run-bot")
 def run_bot_cron():
     success = send_telegram_update()
     if success:
         return "4-hourly bot executed successfully and message sent to Telegram!", 200
     else:
-        return "Failed to send message to Telegram", 500
+        return "Failed to send message to Telegram. Please check Render Logs for exact error.", 500
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))

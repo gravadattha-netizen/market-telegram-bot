@@ -17,7 +17,7 @@ genai.configure(api_key=GOOGLE_API_KEY)
 
 # ======= [ 1. ADMIN INPUT SECTION ] =======
 ADMIN_MESSAGE = """🗓 ⛽ [ ADMIN INPUT ] 
-• QR စနစ်ဖြင့်တစ်နိုင်ငံလုံး ဆိုင်ပေါင်း ၁၉၂၇ ဆိုင် တပ်ဆင်ရောင်းချပေးနေပါသည်
+• QR စနစ်ဖြင့်တစ်နိုင်ငံလုံး ဆိုင်ပေါင်း ၁၉၂၇ ဆိုင်တပ်ဆင်ရောင်းချပေးနေပါသည်
 • မန်ဘာများအားလုံး မိမိတို့ ပိုင်ဆိုင်မှုကို သေချာ စီမံခန့်ခွဲကြပါရန်။"""
 
 current_market_cache = {
@@ -58,10 +58,12 @@ def generate_ai_analysis():
             "အချက် ၂ ချက်ပါဝင်သော bullet points (●) များဖြင့်သာ ရေးသားပေးပါ။"
         )
         response = model.generate_content(prompt)
-        return response.text.strip()
+        if response and response.text:
+            return response.text.strip()
     except Exception as e:
         print(f"AI Analysis Error: {e}")
-        return current_market_cache["ai_analysis"]
+    
+    return current_market_cache.get("ai_analysis", "● ကမ္ဘာ့စွမ်းအင်ဈေးကွက် အခြေအနေများကို ဆက်လက်စောင့်ကြည့်နေပါသည်။")
 
 def send_telegram_update():
     try:

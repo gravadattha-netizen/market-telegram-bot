@@ -9,7 +9,7 @@ import google.generativeai as genai
 app = Flask(__name__)
 
 # ======= [ CONFIGURATION - TOKENS & KEYS ] =======
-TG_TOKEN = "8876036329:AAFs_ncU_tT09R3kD9C9mq067qL8r1wIdWc"
+TG_TOKEN = "8876036329:AAEqQwail8oF3CuCHvw1MbhzsGOxMA-4O-k"
 GROUP_CHAT_ID = "-1003940722388"
 GOOGLE_API_KEY = "AIzaSyAKM5IAugwBdKxrWQ__igkDwjwITW6f2kc"
 

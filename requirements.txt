@@ -1,4 +1,5 @@
-flask
-pytelegrambotapi
+Flask
+Telebot
 google-generativeai
 requests
+beautifulsoup4

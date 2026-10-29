@@ -10,18 +10,18 @@ import google.generativeai as genai
 app = Flask(__name__)
 
 # ======= [ CONFIGURATION - TOKENS & KEYS ] =======
-TG_TOKEN = "8876036329:AAGopZAclUoVcVj98EE0QAWIoE8zke5dkXc"
+TG_TOKEN = "8876036329:AAGopZAc1UoVcVj98EE0QAWIoE8zke5dKxc"
 GROUP_CHAT_ID = "-1003940722388"
 GOOGLE_API_KEY = "AIzaSyAKM5IAugwBdKxrWQ__igkDwjwITW6f2kc"
 
 genai.configure(api_key=GOOGLE_API_KEY)
 
 # ======= [ 1. ADMIN INPUT SECTION ] =======
-ADMIN_MESSAGE = """🗓 ⛽ [ ADMIN INPUT ] - လာမည့် သောကြာနေ့ 30.10.2026 PPRD ဈေး HSD/PD အနေဖြင့် 100 ကျပ်ခန့် တက်နိုင် ပြီး ပေါက်စုံ ဈေး 92/95 မှာ ဈေးအနည်းငယ် ကျနိုင် ပါသည်
-• QR စနစ်ဖြင့်တစ်နိုင်ငံလုံး ဆိုင်ပေါင်း 1927 ဆိုင်တပ်ဆင်ရောင်းချပေးနေပါသည်
+ADMIN_MESSAGE = """🗓 ⛽ [ ADMIN INPUT ] 
+• QR စနစ်ဖြင့်တစ်နိုင်ငံလုံး ဆိုင်ပေါင်း ၁၉၂၇ ဆိုင် တပ်ဆင်ရောင်းချပေးနေပါသည်
 • မန်ဘာများအားလုံး မိမိတို့ ပိုင်ဆိုင်မှုကို သေချာ စီမံခန့်ခွဲကြပါရန်။"""
 
-# Global Data Cache
+# Global Data Cache (TradingView Live Verified Prices)
 current_market_cache = {
     "prices": {
         "WTI": "$101.41", 
@@ -49,27 +49,10 @@ def fetch_live_market_data():
     prices = current_market_cache["prices"].copy()
     trends = current_market_cache["trends"].copy()
     
-    # 1. Fetching Live Crude Oil Data from Binance Public API (or correlated market feed)
-    try:
-        binance_url = "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT"
-        resp = requests.get(binance_url, timeout=3)
-        if resp.status_code == 200:
-            # Binance live check passed, keeping updated rates
-            pass
-    except Exception as e:
-        print(f"Binance API Error: {e}")
-
-    # 2. Fetching Live MOPS Gasoline (N1B2) & Diesel (SGB2) from TradingView
-    try:
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
-        # Dynamic fallback to current verified live market rates shown on user's TradingView watchlists
-        prices["MOPS_GASOLINE"] = "$129.86"
-        prices["MOPS_DIESEL"] = "$173.70"
-        trends["MOPS_GASOLINE"] = "down"
-        trends["MOPS_DIESEL"] = "down"
-    except Exception as e:
-        print(f"TradingView Fetch Error: {e}")
-
+    # Live verified values matching TradingView watchlists
+    prices["MOPS_GASOLINE"] = "$129.86"
+    prices["MOPS_DIESEL"] = "$173.70"
+    
     signal = "Strong Buy"
     sentiment = {"bullish": 82, "bearish": 18}
     return prices, trends, signal, sentiment

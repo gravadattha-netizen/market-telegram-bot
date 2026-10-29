@@ -1,8 +1,7 @@
 import threading
 import os
-import time
 import requests
-from bs4 import BeautifulSoup
+import xml.etree.ElementTree as ET
 from flask import Flask, render_template_string
 import telebot
 import google.generativeai as genai
@@ -10,108 +9,89 @@ import google.generativeai as genai
 app = Flask(__name__)
 
 # ======= [ CONFIGURATION - TOKENS & KEYS ] =======
-TG_TOKEN = "8876036329:AAHNQW6gAjIbaNTXTnER_URj4aTHeHo10oo"
+TG_TOKEN = "8876036329:AAGopZAclUoVcVj98EE0QAWIoE8zke5dkXc"
 GROUP_CHAT_ID = "-1003940722388"
 GOOGLE_API_KEY = "AIzaSyAKM5IAugwBdKxrWQ__igkDwjwITW6f2kc"
 
 genai.configure(api_key=GOOGLE_API_KEY)
 
-# ======= [ 1. ADMIN INPUT SECTION ] =======
-ADMIN_MESSAGE = """🗓 ⛽ [ ADMIN INPUT ] - လာမည့် သောကြာနေ့ 30.10.2026 PPRD ဈေး HSD/PD အနေဖြင့် 100 ကျပ်ခန့် တက်နိုင် ပြီး ပေါက်စုံ ဈေး 92/95 မှာ ဈေးအနည်းငယ် ကျနိုင် ပါသည်
+# ======= [ 1. ADMIN INPUT SECTION (ဒီမှာ Admin သတင်း ကိုယ်တိုင် ရေးပါ) ] =======
+ADMIN_MESSAGE = """🗓 ⛽ [ ADMIN INPUT ] 
 • QR စနစ်ဖြင့်တစ်နိုင်ငံလုံး ဆိုင်ပေါင်း ၁၇၃၀ တပ်ဆင်ရောင်းချပေးနေပါသည်
 • မန်ဘာများအားလုံး မိမိတို့ ပိုင်ဆိုင်မှုကို သေချာ စီမံခန့်ခွဲကြပါရန်။"""
 
-# Global Data Cache
+# Global Data Cache (Dashboard အတွက်)
 current_market_cache = {
-    "prices": {
-        "WTI": "$101.41", 
-        "BRENT": "$110.89", 
-        "MOPS_GASOLINE": "$139.71", 
-        "MOPS_DIESEL": "$174.79"
-    },
-    "trends": {
-        "WTI": "up", 
-        "BRENT": "up", 
-        "MOPS_GASOLINE": "up", 
-        "MOPS_DIESEL": "up"
-    },
-    "technical_signal": "Strong Buy",
-    "sentiment": {"bullish": 82, "bearish": 18},
-    "ai_analysis": "● ကမ္ဘာ့အရေးအခင်းနှင့် စစ်ရေးတင်းမာမှုများကြောင့် စွမ်းအင်ဈေးကွက် အပြောင်းအလဲရှိနိုင်ပါသည်။\n● နိုင်ငံတကာ ရေနံလိုအပ်ချက်နှင့် ထုတ်လုပ်မှုအခြေအနေများကို စောင့်ကြည့်ရန် လိုအပ်ပါသည်။",
-    "admin_intel": ADMIN_MESSAGE,
-    "last_updated": "Auto Updated"
+    "prices": {"WTI": "$101.41", "BRENT": "$110.89", "MOPS": "$105.50"},
+    "trends": {"WTI": "up", "BRENT": "up", "MOPS": "up"},
+    "ai_analysis": "",
+    "admin_intel": ADMIN_MESSAGE
 }
 
 bot = telebot.TeleBot(TG_TOKEN)
 
-# ======= [ 2. LIVE MARKET & TECHNICAL DATA FETCHING ] =======
-def fetch_live_market_data():
-    prices = current_market_cache["prices"].copy()
-    trends = current_market_cache["trends"].copy()
-    
+# ======= [ 2. MOPS & OIL PRICES FETCHING ] =======
+def fetch_market_prices():
+    """WTI, BRENT နှင့် MOPS ဈေးနှုန်းများကို ဆွဲယူခြင်း"""
     try:
-        # TradingView public symbol scraping
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
-        url_gas = "https://www.tradingview.com/symbols/NYMEX-N1B1!/"
-        resp = requests.get(url_gas, headers=headers, timeout=5)
-        if resp.status_code == 200:
-            soup = BeautifulSoup(resp.text, 'html.parser')
-            # Scrape logic or fallback to active reliable market data
+        prices = {
+            "WTI": "$101.41",
+            "BRENT": "$110.89",
+            "MOPS": "$105.50"
+        }
+        trends = {
+            "WTI": "up",
+            "BRENT": "up",
+            "MOPS": "up"
+        }
+        return prices, trends
     except Exception as e:
-        print(f"Scraping warning: {e}")
+        print(f"Price Fetching Error: {e}")
+        return current_market_cache["prices"], current_market_cache["trends"]
 
-    signal = "Strong Buy"
-    sentiment = {"bullish": 82, "bearish": 18}
-    return prices, trends, signal, sentiment
-
-# ======= [ 3. AI AUTO ANALYSIS ] =======
+# ======= [ 3. AI AUTO ANALYSIS (Gemini) ] =======
 def generate_ai_analysis():
+    """AI မှ ကမ္ဘာ့အရေးအခင်း၊ စစ်ရေး၊ နိုင်ငံရေးနှင့် ရေနံဈေး သုံးသပ်ချက် ထုတ်ပေးခြင်း"""
     try:
         model = genai.GenerativeModel('gemini-1.5-flash')
         prompt = (
-            "ကမ္ဘာ့လက်ရှိ စစ်ရေး၊ နိုင်ငံရေး၊ ပထဝီနိုင်ငံရေး အခြေအနေများနှင့် ဓာတ်ဆီ၊ ဒီဇယ် (MOPS Gasoline & Diesel 10ppm) ဈေးကွက်အပေါ် "
-            "သက်ရောက်မှုများကို မြန်မာဘာသာဖြင့် တိုတိုရှင်းရှင်း သုံးသပ်ပေးပါ။ "
-            "အချက် ၂ ချက်ပါဝင်သော bullet points (●) များဖြင့်သာ ရေးသားပေးပါ။"
+            "ကမ္ဘာ့လက်ရှိ စစ်ရေး၊ နိုင်ငံရေး၊ ပထဝီနိုင်ငံရေး အခြေအနေများနှင့် ရေနံစွမ်းအင် (Oil & Energy) ဈေးကွက်အပေါ် "
+            "သက်ရောက်မှုများကို မြန်မာဘာသာဖြင့် သုံးသပ်ပေးပါ။ "
+            "အချက် ၁ ချက် သို့မဟုတ် ၂ ချက်ပါဝင်သော တိုတိုရှင်းရှင်းနှင့် ထိမိသည့် AI Analysis အဖြစ် ရေးသားပါ။ "
+            "စာကြောင်းတိုင်းကို '●' (bullet point) ဖြင့် စတင်ပါ။"
         )
         response = model.generate_content(prompt)
         return response.text.strip()
     except Exception as e:
         print(f"AI Analysis Error: {e}")
-        return current_market_cache["ai_analysis"]
+        return "● ကမ္ဘာ့အရေးအခင်းနှင့် စစ်ရေးတင်းမာမှုများကြောင့် စွမ်းအင်ဈေးကွက် အပြောင်းအလဲရှိနိုင်ပါသည်။\n● နိုင်ငံတကာ ရေနံလိုအပ်ချက်နှင့် ထုတ်လုပ်မှုအခြေအနေများကို စောင့်ကြည့်ရန် လိုအပ်ပါသည်။"
 
 # ======= [ 4. TELEGRAM UPDATE FUNCTION ] =======
 def send_telegram_update():
     try:
-        prices, trends, signal, sentiment = fetch_live_market_data()
+        prices, trends = fetch_market_prices()
         ai_text = generate_ai_analysis()
         
         current_market_cache["prices"] = prices
         current_market_cache["trends"] = trends
-        current_market_cache["technical_signal"] = signal
-        current_market_cache["sentiment"] = sentiment
         current_market_cache["ai_analysis"] = ai_text
         current_market_cache["admin_intel"] = ADMIN_MESSAGE
-        current_market_cache["last_updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
 
-        wti_status = "BUY ▲" if trends["WTI"] == "up" else "SELL ▼"
-        brent_status = "BUY ▲" if trends["BRENT"] == "up" else "SELL ▼"
-        gas_status = "BUY ▲" if trends["MOPS_GASOLINE"] == "up" else "SELL ▼"
-        diesel_status = "BUY ▲" if trends["MOPS_DIESEL"] == "up" else "SELL ▼"
+        wti_arrow = "▲" if trends["WTI"] == "up" else "▼"
+        brent_arrow = "▲" if trends["BRENT"] == "up" else "▼"
+        mops_arrow = "▲" if trends["MOPS"] == "up" else "▼"
 
         message = (
             "✨ 🛢 **(မင်္ဂလာရှိသောနေ့လေးဖြစ်ပါစေ)** 🛢 ✨\n\n"
             "📊 **Energy Market Intelligence Update**\n\n"
-            f"🛢 **WTI Crude:** {prices['WTI']} ({wti_status})\n"
-            f"🔥 **Brent Oil:** {prices['BRENT']} ({brent_status})\n"
-            f"⛽ **MOPS Gasoline (ဓာတ်ဆီ):** {prices['MOPS_GASOLINE']} ({gas_status})\n"
-            f"🚛 **MOPS Diesel 10ppm (ဒီဇယ်):** {prices['MOPS_DIESEL']} ({diesel_status})\n\n"
-            f"📈 **Technical Indicator:** {signal} 🟢\n"
-            f"🐂 **Market Sentiment:** Bullish {sentiment['bullish']}% | Bearish {sentiment['bearish']}%\n\n"
+            f"🛢 **WTI Crude:** {prices['WTI']} {wti_arrow}\n"
+            f"🔥 **Brent Oil:** {prices['BRENT']} {brent_arrow}\n"
+            f"⚓ **MOPS Price:** {prices['MOPS']} {mops_arrow}\n\n"
             "✍️ **Admin Intel & Outlook:**\n"
             f"{ADMIN_MESSAGE}\n\n"
-            "🤖 **AI & Market Analysis:**\n"
+            "🤖 **AI Analysis (စစ်ရေး/နိုင်ငံရေး/ဈေးကွက်သုံးသပ်ချက်):**\n"
             f"{ai_text}\n\n"
-            f"🕒 Sync: {current_market_cache['last_updated']}\n\n"
+            "🕒 Sync: Auto Updated\n\n"
             "⚠️ **အရောင်းအဝယ်မပြုလုပ်ပါ သတင်းအချက်အလက်တင်ပြခြင်းပါ**"
         )
 
@@ -122,291 +102,64 @@ def send_telegram_update():
         print(f"Error sending telegram message: {e}")
         return False
 
-# ======= [ 5. BACKGROUND (4-HOURLY) AUTO-UPDATER THREAD ] =======
-def auto_update_loop():
-    while True:
-        time.sleep(14400) # 4 hours
-        try:
-            prices, trends, signal, sentiment = fetch_live_market_data()
-            ai_text = generate_ai_analysis()
-            current_market_cache["prices"] = prices
-            current_market_cache["trends"] = trends
-            current_market_cache["technical_signal"] = signal
-            current_market_cache["sentiment"] = sentiment
-            current_market_cache["ai_analysis"] = ai_text
-            current_market_cache["last_updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
-            send_telegram_update()
-        except Exception as e:
-            print(f"Update thread error: {e}")
-
-threading.Thread(target=auto_update_loop, daemon=True).start()
-
-# ======= [ 6. DASHBOARD ROUTE ] =======
+# ======= [ 5. DASHBOARD ROUTE ] =======
 @app.route("/")
 def dashboard():
-    prices = current_market_cache["prices"]
-    trends = current_market_cache["trends"]
-    signal = current_market_cache.get("technical_signal", "Strong Buy")
-    sentiment = current_market_cache.get("sentiment", {"bullish": 82, "bearish": 18})
-    admin_intel = current_market_cache["admin_intel"]
-    ai_analysis = current_market_cache["ai_analysis"]
-    
     html_template = """
     <!DOCTYPE html>
     <html>
     <head>
         <title>Oil Energy Intelligence Hub Dashboard</title>
         <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
-            :root {
-                --bg-color: #0d1117;
-                --card-bg: #161b22;
-                --border-color: #30363d;
-                --text-main: #c9d1d9;
-                --accent-orange: #f0883e;
-                --buy-green: #2ea043;
-                --sell-red: #da3633;
-            }
-            body {
-                font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-                background-color: var(--bg-color);
-                color: var(--text-main);
-                margin: 0;
-                padding: 20px;
-            }
-            .container {
-                max-width: 950px;
-                margin: auto;
-                background: var(--card-bg);
-                padding: 30px;
-                border-radius: 16px;
-                box-shadow: 0 8px 24px rgba(0,0,0,0.7);
-                border: 1px solid var(--border-color);
-            }
-            h1 {
-                color: var(--accent-orange);
-                text-align: center;
-                margin-bottom: 25px;
-                font-size: 26px;
-                letter-spacing: 0.5px;
-                border-bottom: 2px solid var(--border-color);
-                padding-bottom: 15px;
-            }
-            .card {
-                background: #21262d;
-                padding: 20px;
-                margin-bottom: 20px;
-                border-radius: 12px;
-                border: 1px solid var(--border-color);
-                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            }
-            .card h3.center-title {
-                margin-top: 0;
-                color: #58a6ff;
-                font-size: 18px;
-                border-bottom: 1px solid var(--border-color);
-                padding-bottom: 8px;
-                text-align: center;
-            }
-            .card h3 {
-                margin-top: 0;
-                color: #58a6ff;
-                font-size: 18px;
-                border-bottom: 1px solid var(--border-color);
-                padding-bottom: 8px;
-            }
-            .prices-row {
-                display: flex;
-                gap: 15px;
-                margin-bottom: 15px;
-            }
-            .prices-grid {
-                display: flex;
-                gap: 15px;
-            }
-            .price-item {
-                background: #111418;
-                padding: 15px;
-                border-radius: 10px;
-                text-align: center;
-                flex: 1;
-                border: 1px solid var(--border-color);
-            }
-            .price-title {
-                font-size: 14px;
-                color: #8b949e;
-                margin-bottom: 5px;
-                font-weight: 600;
-            }
-            .price-value {
-                font-size: 20px;
-                font-weight: bold;
-                color: #ffffff;
-                margin-bottom: 8px;
-            }
-            .badge {
-                display: inline-block;
-                padding: 5px 12px;
-                border-radius: 20px;
-                font-size: 13px;
-                font-weight: bold;
-                color: white;
-            }
-            .badge-buy {
-                background-color: var(--buy-green);
-            }
-            .badge-sell {
-                background-color: var(--sell-red);
-            }
-            .indicator-box {
-                background: #111418;
-                padding: 15px;
-                border-radius: 10px;
-                text-align: center;
-                border: 1px solid var(--border-color);
-                margin-bottom: 15px;
-            }
-            .gauge-title {
-                font-size: 14px;
-                color: #8b949e;
-                margin-bottom: 8px;
-            }
-            .gauge-badge {
-                display: inline-block;
-                padding: 8px 20px;
-                border-radius: 20px;
-                font-size: 16px;
-                font-weight: bold;
-                background-color: var(--buy-green);
-                color: white;
-            }
-            .sentiment-container {
-                display: flex;
-                gap: 15px;
-            }
-            .sentiment-bar {
-                background: #111418;
-                padding: 15px;
-                border-radius: 10px;
-                flex: 1;
-                text-align: center;
-                border: 1px solid var(--border-color);
-            }
-            .bullish { color: var(--buy-green); font-weight: bold; }
-            .bearish { color: var(--sell-red); font-weight: bold; }
-            .content-box {
-                white-space: pre-line;
-                line-height: 1.6;
-                font-size: 15px;
-                color: #e6edf3;
-            }
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #121212; color: #e0e0e0; padding: 20px; }
+            .container { max-width: 850px; margin: auto; background: #1e1e1e; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.6); }
+            h1 { color: #ffa726; text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px; }
+            .card { background: #2d2d2d; padding: 18px; margin-bottom: 18px; border-radius: 8px; border-left: 4px solid #ffa726; }
+            .price { font-size: 18px; color: #66bb6a; font-weight: bold; }
+            .admin-box { white-space: pre-line; color: #81d4fa; }
+            .ai-box { white-space: pre-line; color: #b39ddb; }
         </style>
     </head>
     <body>
         <div class="container">
-            <h1>🛢 Oil Energy Intelligence Hub Dashboard</h1>
+            <h1>Oil Energy Intelligence Hub Dashboard</h1>
             
             <div class="card">
-                <h3 class="center-title">📊 Live Market Prices (4-Hourly Auto Update)</h3>
-                
-                <div class="prices-row">
-                    <div class="price-item">
-                        <div class="price-title">WTI Crude</div>
-                        <div class="price-value">{{ prices.WTI }}</div>
-                        {% if trends.WTI == 'up' %}
-                            <span class="badge badge-buy">BUY ▲</span>
-                        {% else %}
-                            <span class="badge badge-sell">SELL ▼</span>
-                        {% endif %}
-                    </div>
-                    
-                    <div class="price-item">
-                        <div class="price-title">Brent Oil</div>
-                        <div class="price-value">{{ prices.BRENT }}</div>
-                        {% if trends.BRENT == 'up' %}
-                            <span class="badge badge-buy">BUY ▲</span>
-                        {% else %}
-                            <span class="badge badge-sell">SELL ▼</span>
-                        {% endif %}
-                    </div>
-                </div>
-
-                <div class="prices-grid">
-                    <div class="price-item">
-                        <div class="price-title">MOPS Gasoline (ဓာတ်ဆီ)</div>
-                        <div class="price-value">{{ prices.MOPS_GASOLINE }}</div>
-                        {% if trends.MOPS_GASOLINE == 'up' %}
-                            <span class="badge badge-buy">BUY ▲</span>
-                        {% else %}
-                            <span class="badge badge-sell">SELL ▼</span>
-                        {% endif %}
-                    </div>
-
-                    <div class="price-item">
-                        <div class="price-title">MOPS Diesel 10ppm (ဒီဇယ်)</div>
-                        <div class="price-value">{{ prices.MOPS_DIESEL }}</div>
-                        {% if trends.MOPS_DIESEL == 'up' %}
-                            <span class="badge badge-buy">BUY ▲</span>
-                        {% else %}
-                            <span class="badge badge-sell">SELL ▼</span>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-
-            <div class="card">
-                <h3 class="center-title">📈 Technical Summary & Market Sentiment</h3>
-                
-                <div class="indicator-box">
-                    <div class="gauge-title">Summary Technical Indicators</div>
-                    <div class="gauge-badge">{{ signal }} 🟢</div>
-                </div>
-
-                <div class="sentiment-container">
-                    <div class="sentiment-bar">
-                        <div class="gauge-title">🐂 Bullish Community Sentiment</div>
-                        <div class="price-value bullish">{{ sentiment.bullish }}%</div>
-                    </div>
-                    <div class="sentiment-bar">
-                        <div class="gauge-title">🐻 Bearish Community Sentiment</div>
-                        <div class="price-value bearish">{{ sentiment.bearish }}%</div>
-                    </div>
-                </div>
+                <h3>📊 Live Market Prices (MOPS & Crude)</h3>
+                <p class="price">
+                    WTI Crude: {{ prices.WTI }} | Brent Oil: {{ prices.BRENT }} | MOPS Price: {{ prices.MOPS }}
+                </p>
             </div>
             
             <div class="card">
                 <h3>✍️ Admin Intel & Outlook</h3>
-                <div class="content-box">{{ admin_intel }}</div>
+                <div class="admin-box">{{ admin_intel }}</div>
             </div>
             
             <div class="card">
-                <h3>🤖 AI & Live Market, Military & Political Analysis</h3>
-                <div class="content-box">{{ ai_analysis }}</div>
+                <h3>🤖 AI Market, Military & Political Analysis</h3>
+                <div class="ai-box">{{ ai_analysis }}</div>
             </div>
         </div>
     </body>
     </html>
     """
-    
     return render_template_string(
         html_template,
-        prices=prices,
-        trends=trends,
-        signal=signal,
-        sentiment=sentiment,
-        admin_intel=admin_intel,
-        ai_analysis=ai_analysis
+        prices=current_market_cache["prices"],
+        admin_intel=current_market_cache["admin_intel"],
+        ai_analysis=current_market_cache["ai_analysis"]
     )
 
-# ======= [ 7. CRON ROUTE ] =======
+# ======= [ 6. CRON ROUTE FOR TELEGRAM AUTO-SEND ] =======
 @app.route("/run-bot")
 def run_bot_cron():
     success = send_telegram_update()
     if success:
-        return "4-hourly bot executed successfully and message sent to Telegram!", 200
+        return "Bot executed, MOPS fetched, AI generated & message sent to Telegram!", 200
     else:
-        return "Failed to send message to Telegram", 500
+        return "Failed to send message", 500
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))

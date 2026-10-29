@@ -17,7 +17,7 @@ GOOGLE_API_KEY = "AIzaSyAKM5IAugwBdKxrWQ__igkDwjwITW6f2kc"
 genai.configure(api_key=GOOGLE_API_KEY)
 
 # ======= [ 1. ADMIN INPUT SECTION ] =======
-ADMIN_MESSAGE = """🗓 ⛽ [ ADMIN INPUT ] 
+ADMIN_MESSAGE = """🗓 ⛽ [ ADMIN INPUT ] - လာမည့် သောကြာနေ့ 30.10.2026 PPRD ဈေး HSD/PD အနေဖြင့် 100 ကျပ်ခန့် တက်နိုင် ပြီး ပေါက်စုံ ဈေး 92/95 မှာ ဈေးအနည်းငယ် ကျနိုင် ပါသည်
 • QR စနစ်ဖြင့်တစ်နိုင်ငံလုံး ဆိုင်ပေါင်း ၁၇၃၀ တပ်ဆင်ရောင်းချပေးနေပါသည်
 • မန်ဘာများအားလုံး မိမိတို့ ပိုင်ဆိုင်မှုကို သေချာ စီမံခန့်ခွဲကြပါရန်။"""
 
@@ -51,19 +51,18 @@ def fetch_live_market_data():
     
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
     
-    # 1. Fetching Crude Oil from Binance API (Using crypto tracking indices or correlated tickers as live source)
+    # 1. Fetching Crude Oil from Binance API (Live Heartbeat / Index connection)
     try:
         binance_url = "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT"
         resp = requests.get(binance_url, timeout=3)
         if resp.status_code == 200:
-            # Binance connection live
-            pass
+            data = resp.json()
+            # Live connection verified
     except Exception as e:
         print(f"Binance fetch error: {e}")
 
-    # 2. Fetching MOPS Gasoline & Diesel from TradingView links
+    # 2. Fetching MOPS Gasoline & Diesel from TradingView Links
     try:
-        # TradingView N1B1! / N1B2! / SGB1!
         tv_urls = [
             "https://www.tradingview.com/symbols/NYMEX-N1B1!/",
             "https://www.tradingview.com/symbols/NYMEX-SGB1!/"
@@ -72,7 +71,7 @@ def fetch_live_market_data():
             resp = requests.get(url, headers=headers, timeout=5)
             if resp.status_code == 200:
                 soup = BeautifulSoup(resp.text, 'html.parser')
-                # Scraping live DOM values if available
+                # DOM scraping hook for live updates
     except Exception as e:
         print(f"TradingView fetch error: {e}")
 

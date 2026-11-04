@@ -3,3 +3,4 @@ Telebot
 google-generativeai
 requests
 beautifulsoup4
+tradingview-ta

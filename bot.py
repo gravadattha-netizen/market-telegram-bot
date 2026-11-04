@@ -6,7 +6,6 @@ import xml.etree.ElementTree as ET
 from flask import Flask, render_template_string
 import telebot
 import google.generativeai as genai
-from tradingview_ta import TA_Handler, Interval
 
 app = Flask('')
 
@@ -283,31 +282,45 @@ def fetch_yahoo_oil_price(symbol):
         print(f"Yahoo Finance error for {symbol}: {e}")
         return None, None
 
-# ======= [ REAL TRADINGVIEW DATA FEED ] =======
-def fetch_real_tradingview_data(symbol):
-    """ TradingView ၏ အခမဲ့ Scanner API မှ N1B2! နှင့် SGB2! ဈေးနှုန်း တိုက်ရိုက်ဆွဲထုတ်ခြင်း """
-    exchanges = [
-        {"exchange": "NYMEX", "screener": "cfd"},
-        {"exchange": "NYMEX", "screener": "futures"},
-        {"exchange": "SGX", "screener": "derivatives"}
-    ]
-    for item in exchanges:
-        try:
-            handler = TA_Handler(
-                symbol=symbol,
-                exchange=item["exchange"],
-                screener=item["screener"],
-                interval=Interval.INTERVAL_1_DAY
-            )
-            analysis = handler.get_analysis()
-            price = analysis.indicators.get("close", 0.0)
-            if price and price > 0:
-                rec = analysis.summary.get("RECOMMENDATION", "HOLD")
-                signal = "Bullish" if rec in ["STRONG_BUY", "BUY"] else ("Bearish" if rec in ["STRONG_SELL", "SELL"] else "Neutral")
-                return round(float(price), 2), signal, rec
-        except Exception:
-            continue
-    return 0.0, "Neutral", "HOLD"
+# ======= [ DIRECT TRADINGVIEW SCANNER FETCH ] =======
+def fetch_tradingview_direct(symbol_full):
+    """ TradingView Scanner API သို့ တိုက်ရိုက် HTTP POST Request ဖြင့် ဈေးနှုန်းနှင့် Technical Data ဆွဲထုတ်ခြင်း """
+    try:
+        url = "https://scanner.tradingview.com/cfd/scan"
+        payload = {
+            "symbols": {"tickers": [symbol_full]},
+            "columns": ["close", "Recommend.All", "change"]
+        }
+        headers = {"User-Agent": "Mozilla/5.0"}
+        res = requests.post(url, json=payload, headers=headers, timeout=10).json()
+        
+        if "data" in res and len(res["data"]) > 0:
+            values = res["data"][0]["d"]
+            close_price = round(float(values[0]), 2)
+            recommend_score = values[1]
+            
+            # Recommendation Score ကိုမူတည်၍ TA နှင့် Bullish/Bearish ခွဲခြားခြင်း
+            if recommend_score is not None:
+                if recommend_score >= 0.5:
+                    signal = "Bullish"
+                    ta = "BUY"
+                elif recommend_score <= -0.5:
+                    signal = "Bearish"
+                    ta = "SELL"
+                elif recommend_score > 0:
+                    signal = "Bullish"
+                    ta = "BUY"
+                else:
+                    signal = "Bearish"
+                    ta = "SELL"
+            else:
+                signal = "Neutral"
+                ta = "HOLD"
+                
+            return close_price, signal, ta
+    except Exception as e:
+        print(f"TradingView Scanner Direct Fetch Error [{symbol_full}]: {e}")
+    return None, None, None
 
 def update_dashboard_data():
     prices = current_market_cache["prices"].copy()
@@ -332,40 +345,27 @@ def update_dashboard_data():
     for key in ["WTI", "BRENT"]:
         disp[key] = f"${prices[key]:,.2f}"
 
-    # 3. Future MOPS (MOGAS & GASOLINE) - တိုက်ရိုက်ချိတ်ဆက်ဆွဲထုတ်ရန်
+    # 3. Future MOPS (TradingView မှ တိုက်ရိုက်ဆွဲထုတ်ခြင်း)
     mops_prices = current_market_cache["mops_prices"].copy()
     mops_display = current_market_cache["mops_display"].copy()
     mops_signals = current_market_cache["mops_signals"].copy()
     mops_ta = current_market_cache["mops_ta"].copy()
 
-    # MOGAS (N1B2!)
-    mogas_p, mogas_sig, mogas_rec = fetch_real_tradingview_data("N1B2!")
-    if mogas_p > 0:
+    # MOGAS (TradingView Ticker: NYMEX:N1B2!)
+    mogas_p, mogas_sig, mogas_ta_val = fetch_tradingview_direct("NYMEX:N1B2!")
+    if mogas_p:
         mops_prices["MOGAS"] = mogas_p
         mops_display["MOGAS"] = f"${mogas_p:,.2f}"
         mops_signals["MOGAS"] = mogas_sig
-        mops_ta["MOGAS"] = mogas_rec
-    else:
-        # အကယ်၍ API ချိတ်ဆက်မှု ယာယီနှောင့်နှေးပါက WTI ပေါ်မူတည်၍ backup တွက်ချက်ပေးမည်
-        fallback_mogas = round(prices["WTI"] * 1.15 + 3.50, 2)
-        mops_prices["MOGAS"] = fallback_mogas
-        mops_display["MOGAS"] = f"${fallback_mogas:,.2f}"
-        mops_signals["MOGAS"] = "Bullish" if trends["WTI"] == "up" else "Bearish"
-        mops_ta["MOGAS"] = "BUY" if trends["WTI"] == "up" else "SELL"
+        mops_ta["MOGAS"] = mogas_ta_val
 
-    # GASOLINE (SGB2!)
-    gas_p, gas_sig, gas_rec = fetch_real_tradingview_data("SGB2!")
-    if gas_p > 0:
+    # GASOLINE / GASOIL (TradingView Ticker: NYMEX:SGB2!)
+    gas_p, gas_sig, gas_ta_val = fetch_tradingview_direct("NYMEX:SGB2!")
+    if gas_p:
         mops_prices["GASOLINE"] = gas_p
         mops_display["GASOLINE"] = f"${gas_p:,.2f}"
         mops_signals["GASOLINE"] = gas_sig
-        mops_ta["GASOLINE"] = gas_rec
-    else:
-        fallback_gas = round(prices["WTI"] * 1.12 + 2.10, 2)
-        mops_prices["GASOLINE"] = fallback_gas
-        mops_display["GASOLINE"] = f"${fallback_gas:,.2f}"
-        mops_signals["GASOLINE"] = "Bullish" if trends["BRENT"] == "up" else "Bearish"
-        mops_ta["GASOLINE"] = "BUY" if trends["BRENT"] == "up" else "SELL"
+        mops_ta["GASOLINE"] = gas_ta_val
 
     # Cache Update
     current_market_cache["prices"] = prices
@@ -446,4 +446,4 @@ if __name__ == "__main__":
         try: bot.polling(none_stop=True, timeout=60)
         except Exception as e: 
             print(f"Bot polling crash, restarting...: {e}")
-            time.sleep(5)
+            time

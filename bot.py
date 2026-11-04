@@ -136,7 +136,7 @@ DASHBOARD_HTML = """
         <!-- 3. Future MOPS (MOGAS & GASOLINE) -->
         <div class="grid-2">
             <div class="card">
-                <div class="card-title" style="color: #38bdf8;">📈 FUTURE MOPS: MOGAS</div>
+                <div class="card-title" style="color: #38bdf8;">FUTURE MOPS: MOGAS</div>
                 <div class="row-item">
                     <span class="label-text">Price</span>
                     <span class="val-text">{{ data.mops_display.MOGAS }}</span>
@@ -154,7 +154,7 @@ DASHBOARD_HTML = """
             </div>
 
             <div class="card">
-                <div class="card-title" style="color: #38bdf8;">📈 FUTURE MOPS: GASOLINE</div>
+                <div class="card-title" style="color: #38bdf8;">FUTURE MOPS: GASOLINE</div>
                 <div class="row-item">
                     <span class="label-text">Price</span>
                     <span class="val-text">{{ data.mops_display.GASOLINE }}</span>
@@ -283,25 +283,35 @@ def fetch_yahoo_oil_price(symbol):
         print(f"Yahoo Finance error for {symbol}: {e}")
         return None, None
 
-# ======= [ MARKET FETCH FUNCTION ] =======
-def fetch_market_data(symbol, exchange="NYMEX"):
-    """ ဈေးနှုန်းနှင့် Technical Analysis ဆွဲထုတ်ခြင်း (အမှားကင်းစင်ရန် fallback ပါဝင်သည်) """
-    try:
-        handler = TA_Handler(
-            symbol=symbol,
-            exchange=exchange,
-            screener="cfd",
-            interval=Interval.INTERVAL_1_DAY
-        )
-        analysis = handler.get_analysis()
-        price = analysis.indicators.get("close", 0.0)
-        rec = analysis.summary.get("RECOMMENDATION", "HOLD")
-        
-        signal = "Bullish" if rec in ["STRONG_BUY", "BUY"] else ("Bearish" if rec in ["STRONG_SELL", "SELL"] else "Neutral")
-        return round(float(price), 2), signal, rec
-    except Exception as e:
-        print(f"Fetch error for {symbol}: {e}")
-        return 0.0, "Neutral", "HOLD"
+# ======= [ ROBUST MARKET FETCH FUNCTION ] =======
+def fetch_mops_data(symbol):
+    """ ပိုမိုတိကျစေရန် exchange မျိုးစုံဖြင့် စမ်းသပ်ဆွဲထုတ်ပေးသော function """
+    exchanges_to_try = [
+        {"exchange": "NYMEX", "screener": "cfd"},
+        {"exchange": "COMEX", "screener": "cfd"},
+        {"exchange": "SGX", "screener": "derivatives"},
+        {"exchange": "NYMEX", "screener": "futures"}
+    ]
+    
+    for item in exchanges_to_try:
+        try:
+            handler = TA_Handler(
+                symbol=symbol,
+                exchange=item["exchange"],
+                screener=item["screener"],
+                interval=Interval.INTERVAL_1_DAY
+            )
+            analysis = handler.get_analysis()
+            price = analysis.indicators.get("close", 0.0)
+            if price and price > 0:
+                rec = analysis.summary.get("RECOMMENDATION", "HOLD")
+                signal = "Bullish" if rec in ["STRONG_BUY", "BUY"] else ("Bearish" if rec in ["STRONG_SELL", "SELL"] else "Neutral")
+                return round(float(price), 2), signal, rec
+        except Exception:
+            continue
+            
+    # အကယ်၍ အထက်ပါနည်းလမ်းများ မအောင်မြင်ပါက Yahoo Finance မှတဆင့် အစားထိုးဆွဲထုတ်ရန် (သို့မဟုတ် သင့်လျော်သော တန်ဖိုးပေးရန်)
+    return 0.0, "Neutral", "HOLD"
 
 def update_dashboard_data():
     prices = current_market_cache["prices"].copy()
@@ -333,7 +343,7 @@ def update_dashboard_data():
     mops_ta = current_market_cache["mops_ta"].copy()
 
     # MOGAS (N1B2!)
-    mogas_p, mogas_sig, mogas_rec = fetch_market_data("N1B2!")
+    mogas_p, mogas_sig, mogas_rec = fetch_mops_data("N1B2!")
     if mogas_p > 0:
         mops_prices["MOGAS"] = mogas_p
         mops_display["MOGAS"] = f"${mogas_p:,.2f}"
@@ -341,7 +351,7 @@ def update_dashboard_data():
         mops_ta["MOGAS"] = mogas_rec
 
     # GASOLINE (SGB2!)
-    gas_p, gas_sig, gas_rec = fetch_market_data("SGB2!")
+    gas_p, gas_sig, gas_rec = fetch_mops_data("SGB2!")
     if gas_p > 0:
         mops_prices["GASOLINE"] = gas_p
         mops_display["GASOLINE"] = f"${gas_p:,.2f}"

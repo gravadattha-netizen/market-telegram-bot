@@ -6,11 +6,12 @@ import xml.etree.ElementTree as ET
 from flask import Flask, render_template_string
 import telebot
 import google.generativeai as genai
+from tradingview_ta import TA_Handler, Interval
 
 app = Flask('')
 
 # ======= [ CONFIGURATION - TOKENS & KEYS ] =======
-TG_TOKEN = "8876036329:AAHSip397-NucbnJIX9aK9d2jeNo115gsX" 
+TG_TOKEN = "8876036329:AAHSip397-NucbnJIX9aK9d2jeNo115gsX8" 
 GROUP_CHAT_ID = -1003940722388  
 GOOGLE_API_KEY = "AIzaSyAKM5IAugwBdKxrWQ__igkDwjwITW6f2kc"
 
@@ -30,10 +31,10 @@ current_market_cache = {
     "trends": {"WTI": "up", "BRENT": "up"},
     
     # Future MOPS Data Cache
-    "mops_prices": {"MOGAS": 85.50, "GASOLINE": 82.20},
-    "mops_display": {"MOGAS": "$85.50", "GASOLINE": "$82.20"},
-    "mops_signals": {"MOGAS": "Bullish", "GASOLINE": "Bullish"},
-    "mops_ta": {"MOGAS": "BUY", "GASOLINE": "BUY"},
+    "mops_prices": {"MOGAS": 0.0, "GASOLINE": 0.0},
+    "mops_display": {"MOGAS": "$0.00", "GASOLINE": "$0.00"},
+    "mops_signals": {"MOGAS": "Neutral", "GASOLINE": "Neutral"},
+    "mops_ta": {"MOGAS": "HOLD", "GASOLINE": "HOLD"},
 
     "last_update": "N/A",
     "wti_gauge": 50,
@@ -282,7 +283,32 @@ def fetch_yahoo_oil_price(symbol):
         print(f"Yahoo Finance error for {symbol}: {e}")
         return None, None
 
-# ======= [ RELIABLE MOPS FETCH FUNCTION ] =======
+# ======= [ REAL TRADINGVIEW DATA FEED ] =======
+def fetch_real_tradingview_data(symbol):
+    """ TradingView ၏ အခမဲ့ Scanner API မှ N1B2! နှင့် SGB2! ဈေးနှုန်း တိုက်ရိုက်ဆွဲထုတ်ခြင်း """
+    exchanges = [
+        {"exchange": "NYMEX", "screener": "cfd"},
+        {"exchange": "NYMEX", "screener": "futures"},
+        {"exchange": "SGX", "screener": "derivatives"}
+    ]
+    for item in exchanges:
+        try:
+            handler = TA_Handler(
+                symbol=symbol,
+                exchange=item["exchange"],
+                screener=item["screener"],
+                interval=Interval.INTERVAL_1_DAY
+            )
+            analysis = handler.get_analysis()
+            price = analysis.indicators.get("close", 0.0)
+            if price and price > 0:
+                rec = analysis.summary.get("RECOMMENDATION", "HOLD")
+                signal = "Bullish" if rec in ["STRONG_BUY", "BUY"] else ("Bearish" if rec in ["STRONG_SELL", "SELL"] else "Neutral")
+                return round(float(price), 2), signal, rec
+        except Exception:
+            continue
+    return 0.0, "Neutral", "HOLD"
+
 def update_dashboard_data():
     prices = current_market_cache["prices"].copy()
     disp = current_market_cache["display_prices"].copy()
@@ -306,25 +332,40 @@ def update_dashboard_data():
     for key in ["WTI", "BRENT"]:
         disp[key] = f"${prices[key]:,.2f}"
 
-    # 3. Future MOPS (MOGAS & GASOLINE) - Calculated & Synced with WTI/Brent trends
+    # 3. Future MOPS (MOGAS & GASOLINE) - တိုက်ရိုက်ချိတ်ဆက်ဆွဲထုတ်ရန်
     mops_prices = current_market_cache["mops_prices"].copy()
     mops_display = current_market_cache["mops_display"].copy()
     mops_signals = current_market_cache["mops_signals"].copy()
     mops_ta = current_market_cache["mops_ta"].copy()
 
-    # ရေနံစိမ်းဈေးအပေါ်မူတည်၍ MOGAS နှင့် GASOLINE ဈေးနှုန်းများကို တိကျမှန်ကန်စွာ တွက်ချက်ဖော်ပြခြင်း
-    mogas_val = round(prices["WTI"] * 1.15 + 3.50, 2)
-    gasoline_val = round(prices["WTI"] * 1.12 + 2.10, 2)
+    # MOGAS (N1B2!)
+    mogas_p, mogas_sig, mogas_rec = fetch_real_tradingview_data("N1B2!")
+    if mogas_p > 0:
+        mops_prices["MOGAS"] = mogas_p
+        mops_display["MOGAS"] = f"${mogas_p:,.2f}"
+        mops_signals["MOGAS"] = mogas_sig
+        mops_ta["MOGAS"] = mogas_rec
+    else:
+        # အကယ်၍ API ချိတ်ဆက်မှု ယာယီနှောင့်နှေးပါက WTI ပေါ်မူတည်၍ backup တွက်ချက်ပေးမည်
+        fallback_mogas = round(prices["WTI"] * 1.15 + 3.50, 2)
+        mops_prices["MOGAS"] = fallback_mogas
+        mops_display["MOGAS"] = f"${fallback_mogas:,.2f}"
+        mops_signals["MOGAS"] = "Bullish" if trends["WTI"] == "up" else "Bearish"
+        mops_ta["MOGAS"] = "BUY" if trends["WTI"] == "up" else "SELL"
 
-    mops_prices["MOGAS"] = mogas_val
-    mops_display["MOGAS"] = f"${mogas_val:,.2f}"
-    mops_signals["MOGAS"] = "Bullish" if trends["WTI"] == "up" else "Bearish"
-    mops_ta["MOGAS"] = "BUY" if trends["WTI"] == "up" else "SELL"
-
-    mops_prices["GASOLINE"] = gasoline_val
-    mops_display["GASOLINE"] = f"${gasoline_val:,.2f}"
-    mops_signals["GASOLINE"] = "Bullish" if trends["BRENT"] == "up" else "Bearish"
-    mops_ta["GASOLINE"] = "BUY" if trends["BRENT"] == "up" else "SELL"
+    # GASOLINE (SGB2!)
+    gas_p, gas_sig, gas_rec = fetch_real_tradingview_data("SGB2!")
+    if gas_p > 0:
+        mops_prices["GASOLINE"] = gas_p
+        mops_display["GASOLINE"] = f"${gas_p:,.2f}"
+        mops_signals["GASOLINE"] = gas_sig
+        mops_ta["GASOLINE"] = gas_rec
+    else:
+        fallback_gas = round(prices["WTI"] * 1.12 + 2.10, 2)
+        mops_prices["GASOLINE"] = fallback_gas
+        mops_display["GASOLINE"] = f"${fallback_gas:,.2f}"
+        mops_signals["GASOLINE"] = "Bullish" if trends["BRENT"] == "up" else "Bearish"
+        mops_ta["GASOLINE"] = "BUY" if trends["BRENT"] == "up" else "SELL"
 
     # Cache Update
     current_market_cache["prices"] = prices

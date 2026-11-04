@@ -6,6 +6,7 @@ import xml.etree.ElementTree as ET
 from flask import Flask, render_template_string
 import telebot
 import google.generativeai as genai
+from tradingview_ta import TA_Handler, Interval
 
 app = Flask('')
 
@@ -20,7 +21,7 @@ genai.configure(api_key=GOOGLE_API_KEY)
 # ✍️ [ ADMIN INPUT ] - ဆီလုပ်ငန်းသတင်းများ ရေးထည့်ရန်နေရာ
 # =========================================================
 ADMIN_MESSAGE = """● QR စနစ်ဖြင့်တစ်နိုင်ငံလုံး ဆိုင်ပေါင်း ၁၉၂၇ ဆိုင်တပ်ဆင်ရောင်းချ ပေးနေပါသည်
-● မန်ဘာများအားလုံး မိမိတို့ ပိုင်ဆိုင်မှုကို သေჩာ စီမံခန့်ခွဲကြပါရန်။"""
+● မန်ဘာများအားလုံး မိမိတို့ ပိုင်ဆိုင်မှုကို သေချာ စီမံခန့်ခွဲကြပါရန်။"""
 # =========================================================
 
 # Global Data Cache
@@ -28,15 +29,22 @@ current_market_cache = {
     "prices": {"WTI": 71.70, "BRENT": 76.00},
     "display_prices": {"WTI": "$71.70", "BRENT": "$76.00"},
     "trends": {"WTI": "up", "BRENT": "up"},
+    
+    # Future MOPS (TradingView) Data Cache
+    "mops_prices": {"N1B2": 0.0, "SGB2": 0.0},
+    "mops_display": {"N1B2": "$0.00", "SGB2": "$0.00"},
+    "mops_signals": {"N1B2": "Neutral", "SGB2": "Neutral"},
+    "mops_ta": {"N1B2": "HOLD", "SGB2": "HOLD"},
+
     "last_update": "N/A",
     "wti_gauge": 50,
     "brent_gauge": 55,
-    "ai_news": "● ကမ္ဘာ့ရေနံဈေးကွက်သတင်းများကို AI ဖြင့် သေჩာစွာ အနှစ်ချုပ် သုံးသပ်နေပါသည်...",
+    "ai_news": "● ကမ္ဘာ့ရေနံဈေးကွက်သတင်းများကို AI ဖြင့် သေချာစွာ အနှစ်ချုပ် သုံးသပ်နေပါသည်...",
     "last_mops_text": "No custom MOPS news forwarded from group yet. Waiting for member updates...",
     "admin_intel": ADMIN_MESSAGE 
 }
 
-# ======= [ HTML UI - OIL PORTAL ONLY ] =======
+# ======= [ HTML UI - OIL PORTAL WITH MOPS & TA ] =======
 DASHBOARD_HTML = """
 <!DOCTYPE html>
 <html lang="en">
@@ -75,6 +83,8 @@ DASHBOARD_HTML = """
         .chart-container { width: 100%; height: 110px; display: flex; justify-content: center; align-items: center; overflow: hidden; }
         .up { color: #10b981 !important; }    
         .down { color: #ef4444 !important; }  
+        .bullish { color: #10b981; font-weight: 800; }
+        .bearish { color: #ef4444; font-weight: 800; }
         .news-box { line-height: 1.7; font-size: 0.9rem; color: #e2e8f0; white-space: pre-line; text-align: left; }
         footer { text-align: center; color: #ef4444; font-size: 0.8rem; font-weight: bold; padding: 12px; background: #070a12; border-radius: 12px; border: 1px solid rgba(239, 68, 68, 0.2); margin-top: 10px; }
         @media (max-width: 768px) {
@@ -94,20 +104,25 @@ DASHBOARD_HTML = """
             <span class="sync-time">Last Sync: {{ data.last_update }}</span>
         </header>
 
-        <div class="grid-1">
+        <!-- 1. ကမ္ဘာ့ရေနံဈေး (WTI နှင့် Brent နှစ်ကွက်ခွဲထားသည်) -->
+        <div class="grid-2">
             <div class="card">
-                <div class="card-title">🛢 INTERNATIONAL ENERGIES (ကမ္ဘာ့ရေနံဈေးနှုန်းများ)</div>
+                <div class="card-title">🛢 WTI Crude Oil (ကမ္ဘာ့ရေနံဈေး)</div>
                 <div class="row-item">
-                    <span class="label-text">WTI Crude Oil</span>
+                    <span class="label-text">Price</span>
                     <span class="val-text {{ data.trends.WTI }}">{{ data.display_prices.WTI }}</span>
                 </div>
+            </div>
+            <div class="card">
+                <div class="card-title">🛢 Brent Crude Oil (ကမ္ဘာ့ရေနံဈေး)</div>
                 <div class="row-item">
-                    <span class="label-text">Brent Crude Oil</span>
+                    <span class="label-text">Price</span>
                     <span class="val-text {{ data.trends.BRENT }}">{{ data.display_prices.BRENT }}</span>
                 </div>
             </div>
         </div>
 
+        <!-- 2. Gauges -->
         <div class="grid-2">
             <div class="gauge-card">
                 <div class="gauge-header">🛢 WTI Crude Gauge</div>
@@ -119,16 +134,56 @@ DASHBOARD_HTML = """
             </div>
         </div>
 
+        <!-- 3. Future MOPS (TradingView N1B2! & SGB2!) -->
+        <div class="grid-2">
+            <div class="card">
+                <div class="card-title" style="color: #38bdf8;">📈 Future MOPS: Mogas (N1B2!)</div>
+                <div class="row-item">
+                    <span class="label-text">Price</span>
+                    <span class="val-text">{{ data.mops_display.N1B2 }}</span>
+                </div>
+                <div class="row-item">
+                    <span class="label-text">Market Sentiment</span>
+                    <span class="val-text {{ 'bullish' if data.mops_signals.N1B2 == 'Bullish' else 'bearish' }}">
+                        {{ '🟢 Bullish' if data.mops_signals.N1B2 == 'Bullish' else '🔴 Bearish' }}
+                    </span>
+                </div>
+                <div class="row-item">
+                    <span class="label-text">Technical Analysis</span>
+                    <span class="val-text" style="color: #fbbf24;">{{ data.mops_ta.N1B2 }}</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title" style="color: #38bdf8;">📈 Future MOPS: Gasoil (SGB2!)</div>
+                <div class="row-item">
+                    <span class="label-text">Price</span>
+                    <span class="val-text">{{ data.mops_display.SGB2 }}</span>
+                </div>
+                <div class="row-item">
+                    <span class="label-text">Market Sentiment</span>
+                    <span class="val-text {{ 'bullish' if data.mops_signals.SGB2 == 'Bullish' else 'bearish' }}">
+                        {{ '🟢 Bullish' if data.mops_signals.SGB2 == 'Bullish' else '🔴 Bearish' }}
+                    </span>
+                </div>
+                <div class="row-item">
+                    <span class="label-text">Technical Analysis</span>
+                    <span class="val-text" style="color: #fbbf24;">{{ data.mops_ta.SGB2 }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. Admin, AI & Member News -->
         <div class="grid-3">
             <div class="card" style="border: 1px solid rgba(255, 215, 0, 0.4);">
-                <div class="card-title" style="color: #FFD700; border-bottom-color: rgba(255, 215, 0, 0.2);">✍️ ADMIN INTEL & OIL OUTLOOK</div>
+                <div class="card-title" style="color: #FFD700; border-bottom-color: rgba(255, 215, 0, 0.2);">✍️ ADMIN INTEL & OUTLOOK</div>
                 <div class="news-box" style="color: #ffeaa7;">
                     {{ data.admin_intel }}
                 </div>
             </div>
 
             <div class="card">
-                <div class="card-title" style="color: #60a5fa; border-bottom-color: #2e3d56;">🤖 OIL MARKET AI AUTOMATED ANALYSIS</div>
+                <div class="card-title" style="color: #60a5fa; border-bottom-color: #2e3d56;">🤖 OIL MARKET AI ANALYSIS</div>
                 <div class="news-box">
                     {{ data.ai_news }}
                 </div>
@@ -183,7 +238,7 @@ def home():
 
 bot = telebot.TeleBot(TG_TOKEN)
 
-# ======= [ FIXED GEMINI NEWS PIPELINE ] =======
+# ======= [ GEMINI AI ANALYSIS ] =======
 def update_ai_analysis(prices):
     try:
         headlines = []
@@ -214,13 +269,11 @@ def update_ai_analysis(prices):
         print(f"Gemini error: {e}")
     return "● ကမ္ဘာ့ရေနံဈေးကွက်သည် လက်ရှိအခြေအနေတွင် ပုံမှန်အတိုင်း ဆက်လက်ရွေ့လျားနေပါသည်။\n● နိုင်ငံတကာစွမ်းအင်လိုအပ်ချက်နှင့် ထုတ်လုပ်မှုအခြေအနေများကို စောင့်ကြည့်ရပါမည်။"
 
-# ======= [ YAHOO FINANCE FIXED LIVE FEED ] =======
+# ======= [ YAHOO FINANCE LIVE FEED ] =======
 def fetch_yahoo_oil_price(symbol):
-    """ Yahoo Finance API URL စာလုံးပေါင်း အမှန်ပြင်ဆင်ထားသည် """
     try:
-        # finance.yahoo.com တိုက်ရိုက် endpoint သို့ ပြောင်းလဲထားပါသည်
         url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1m&range=1d"
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+        headers = {'User-Agent': 'Mozilla/5.0'}
         response = requests.get(url, headers=headers, timeout=7).json()
         meta = response['chart']['result'][0]['meta']
         price = meta['regularMarketPrice']
@@ -228,21 +281,43 @@ def fetch_yahoo_oil_price(symbol):
         trend = "up" if price >= prev_close else "down"
         return round(float(price), 2), trend
     except Exception as e:
-        print(f"Yahoo Finance fetch error for {symbol}: {e}")
+        print(f"Yahoo Finance error for {symbol}: {e}")
         return None, None
+
+# ======= [ TRADINGVIEW MOPS FETCH FUNCTION ] =======
+def fetch_tradingview_mops(symbol, exchange="NYMEX"):
+    """ TradingView မှ N1B2! နှင့် SGB2! ဈေးနှုန်းနှင့် Technical Analysis ဆွဲထုတ်ခြင်း """
+    try:
+        handler = TA_Handler(
+            symbol=symbol,
+            exchange=exchange,
+            screener="cfd",
+            interval=Interval.INTERVAL_1_DAY
+        )
+        analysis = handler.get_analysis()
+        price = analysis.indicators.get("close", 0.0)
+        rec = analysis.summary.get("RECOMMENDATION", "HOLD") # BUY, SELL, NEUTRAL etc.
+        
+        # Bullish / Bearish သတ်မှတ်ချက်
+        signal = "Bullish" if rec in ["STRONG_BUY", "BUY"] else ("Bearish" if rec in ["STRONG_SELL", "SELL"] else "Neutral")
+        
+        return round(float(price), 2), signal, rec
+    except Exception as e:
+        print(f"TradingView fetch error for {symbol}: {e}")
+        return 0.0, "Neutral", "HOLD"
 
 def update_dashboard_data():
     prices = current_market_cache["prices"].copy()
     disp = current_market_cache["display_prices"].copy()
     trends = current_market_cache["trends"].copy()
     
-    # 1. WTI Crude Oil Live (CL=F)
+    # 1. WTI Crude
     wti_p, wti_t = fetch_yahoo_oil_price("CL=F")
     if wti_p:
         prices["WTI"] = wti_p
         trends["WTI"] = wti_t
         
-    # 2. Brent Crude Oil Live (BZ=F)
+    # 2. Brent Crude
     brent_p, brent_t = fetch_yahoo_oil_price("BZ=F")
     if brent_p:
         prices["BRENT"] = brent_p
@@ -254,11 +329,37 @@ def update_dashboard_data():
     for key in ["WTI", "BRENT"]:
         disp[key] = f"${prices[key]:,.2f}"
 
+    # 3. Future MOPS (TradingView: N1B2! & SGB2!)
+    mops_prices = current_market_cache["mops_prices"].copy()
+    mops_display = current_market_cache["mops_display"].copy()
+    mops_signals = current_market_cache["mops_signals"].copy()
+    mops_ta = current_market_cache["mops_ta"].copy()
+
+    n1_price, n1_sig, n1_rec = fetch_tradingview_mops("N1B2!")
+    if n1_price > 0:
+        mops_prices["N1B2"] = n1_price
+        mops_display["N1B2"] = f"${n1_price:,.2f}"
+        mops_signals["N1B2"] = n1_sig
+        mops_ta["N1B2"] = n1_rec
+
+    sg2_price, sg2_sig, sg2_rec = fetch_tradingview_mops("SGB2!")
+    if sg2_price > 0:
+        mops_prices["SGB2"] = sg2_price
+        mops_display["SGB2"] = f"${sg2_price:,.2f}"
+        mops_signals["SGB2"] = sg2_sig
+        mops_ta["SGB2"] = sg2_rec
+
+    # Cache Update
     current_market_cache["prices"] = prices
     current_market_cache["display_prices"] = disp
     current_market_cache["trends"] = trends
-    current_market_cache["last_update"] = time.strftime("%I:%M %p")
     
+    current_market_cache["mops_prices"] = mops_prices
+    current_market_cache["mops_display"] = mops_display
+    current_market_cache["mops_signals"] = mops_signals
+    current_market_cache["mops_ta"] = mops_ta
+
+    current_market_cache["last_update"] = time.strftime("%I:%M %p")
     current_market_cache["wti_gauge"] = 65 if trends["WTI"] == "up" else 45
     current_market_cache["brent_gauge"] = 68 if trends["BRENT"] == "up" else 48
 
@@ -266,12 +367,22 @@ def update_dashboard_data():
 def generate_telegram_msg():
     d = current_market_cache["display_prices"]
     t = current_market_cache["trends"]
+    mops_d = current_market_cache["mops_display"]
+    mops_s = current_market_cache["mops_signals"]
+    mops_t = current_market_cache["mops_ta"]
+
     def arr(k): return "▲" if t[k] == "up" else "▼"
+    def mops_icon(sig): return "🟢" if sig == "Bullish" else "🔴"
+
     return (
         "✨ 🛢 **(မင်္ဂလာရှိသောနေ့လေးဖြစ်ပါစေ)** 🛢 ✨\n\n"
         "📊 **Energy Market Intelligence Update**\n\n"
-        f"🛢 **WTI Crude:** {d['WTI']} {arr('WTI')}\n"
-        f"🔥 **Brent Oil:** {d['BRENT']} {arr('BRENT')}\n\n"
+        "🌍 **ကမ္ဘာ့ရေနံဈေးနှုန်းများ:**\n"
+        f"• **WTI Crude:** {d['WTI']} {arr('WTI')}\n"
+        f"• **Brent Oil:** {d['BRENT']} {arr('BRENT')}\n\n"
+        "📈 **Future MOPS (TradingView):**\n"
+        f"• **Singapore Mogas (N1B2!):** {mops_d['N1B2']} | {mops_icon(mops_s['N1B2'])} {mops_s['N1B2']} (TA: `{mops_t['N1B2']}`)\n"
+        f"• **Singapore Gasoil (SGB2!):** {mops_d['SGB2']} | {mops_icon(mops_s['SGB2'])} {mops_s['SGB2']} (TA: `{mops_t['SGB2']}`)\n\n"
         f"✍️ **Admin Intel & Outlook:**\n{current_market_cache['admin_intel']}\n\n"
         f"🤖 **AI Analysis:**\n{current_market_cache['ai_news']}\n\n"
         f"🕒 Sync: {current_market_cache['last_update']}\n\n"

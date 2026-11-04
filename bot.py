@@ -6,7 +6,6 @@ import xml.etree.ElementTree as ET
 from flask import Flask, render_template_string
 import telebot
 import google.generativeai as genai
-from tradingview_ta import TA_Handler, Interval
 
 app = Flask('')
 
@@ -30,7 +29,7 @@ current_market_cache = {
     "display_prices": {"WTI": "$71.70", "BRENT": "$76.00"},
     "trends": {"WTI": "up", "BRENT": "up"},
     
-    # MOPS Data Cache
+    # MOPS Data Cache (ပုံပါ ဈေးနှုန်းအတိုင်း အတိအကျ)
     "mops_prices": {"MOGAS": 112.18, "GASOLINE": 162.69},
     "mops_display": {"MOGAS": "$112.18", "GASOLINE": "$162.69"},
     "mops_signals": {"MOGAS": "SELL ▼", "GASOLINE": "SELL ▼"},
@@ -45,7 +44,7 @@ current_market_cache = {
     "admin_intel": ADMIN_MESSAGE 
 }
 
-# ======= [ HTML UI - UNIFIED WITH GAUGES & TA BELOW ] =======
+# ======= [ HTML UI - FIXED GAUGES & EXACT PRICES ] =======
 DASHBOARD_HTML = """
 <!DOCTYPE html>
 <html lang="en">
@@ -72,7 +71,6 @@ DASHBOARD_HTML = """
         .sync-time { color: #64748b; font-size: 0.8rem; font-weight: bold; display: block; margin-top: 4px; }
         .section-title { font-size: 0.95rem; color: #38bdf8; font-weight: bold; text-align: center; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 0.5px; }
         .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 15px; }
-        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 15px; }
         .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 15px; }
         .card { background: #111726; border-radius: 14px; border: 1px solid #1e293b; padding: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2); text-align: center; }
         .card-title { font-size: 0.85rem; color: #94a3b8; font-weight: bold; text-transform: uppercase; margin-bottom: 8px; }
@@ -80,21 +78,17 @@ DASHBOARD_HTML = """
         .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; }
         .badge-buy { background-color: #10b981; color: #ffffff; }
         .badge-sell { background-color: #ef4444; color: #ffffff; }
-        .gauge-card { background: #111726; border-radius: 14px; padding: 12px; border: 1px solid #1e293b; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .gauge-card { background: #111726; border-radius: 14px; padding: 12px; border: 1px solid #1e293b; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; overflow: hidden; }
         .gauge-header { font-size: 0.75rem; color: #94a3b8; font-weight: bold; margin-bottom: 8px; text-transform: uppercase; }
         .chart-container { width: 100%; height: 110px; display: flex; justify-content: center; align-items: center; overflow: hidden; }
         .ta-box { background: #111726; border: 1px solid #1e293b; border-radius: 14px; padding: 16px; margin-bottom: 15px; text-align: center; }
         .news-card-title { font-size: 0.85rem; color: #94a3b8; font-weight: bold; text-transform: uppercase; margin-bottom: 12px; border-bottom: 1px solid #1e293b; padding-bottom: 6px; text-align: left; }
         .news-box { line-height: 1.7; font-size: 0.9rem; color: #e2e8f0; white-space: pre-line; text-align: left; }
         footer { text-align: center; color: #ef4444; font-size: 0.8rem; font-weight: bold; padding: 12px; background: #070a12; border-radius: 12px; border: 1px solid rgba(239, 68, 68, 0.2); margin-top: 10px; }
-        @media (max-width: 900px) {
-            .grid-4 { grid-template-columns: repeat(2, 1fr); }
-        }
-        @media (max-width: 600px) {
+        @media (max-width: 768px) {
             body { padding: 10px; }
             h1 { font-size: 1.3rem; }
             .grid-2 { grid-template-columns: 1fr; gap: 12px; }
-            .grid-4 { grid-template-columns: 1fr; gap: 12px; }
             .grid-3 { grid-template-columns: 1fr; gap: 12px; }
         }
     </style>
@@ -136,9 +130,9 @@ DASHBOARD_HTML = """
             </div>
         </div>
 
-        <!-- 4 GAUGES SECTION (WTI, BRENT, MOGAS, DIESEL) -->
+        <!-- 4 GAUGES SECTION (ဘောင်အတွင်း သပ်ရပ်စွာဝင်စေရန် grid-2 နှစ်ကွက်စီ ခွဲထားသည်) -->
         <div class="section-title" style="margin-top: 20px;">📈 Market Sentiment Gauges</div>
-        <div class="grid-4">
+        <div class="grid-2">
             <div class="gauge-card">
                 <div class="gauge-header">🛢 WTI Crude</div>
                 <div class="chart-container"><div id="wtiGauge"></div></div>
@@ -147,6 +141,8 @@ DASHBOARD_HTML = """
                 <div class="gauge-header">🔥 Brent Oil</div>
                 <div class="chart-container"><div id="brentGauge"></div></div>
             </div>
+        </div>
+        <div class="grid-2">
             <div class="gauge-card">
                 <div class="gauge-header">⛽ MOPS MOGAS</div>
                 <div class="chart-container"><div id="mogasGauge"></div></div>
@@ -157,7 +153,7 @@ DASHBOARD_HTML = """
             </div>
         </div>
 
-        <!-- TECHNICAL ANALYSIS SECTION (သီးသန့်အောက်တွင် ထည့်သွင်းထားသည်) -->
+        <!-- TECHNICAL ANALYSIS SECTION -->
         <div class="ta-box">
             <div class="news-card-title" style="color: #fbbf24; text-align: center; border-bottom: none; margin-bottom: 8px;">
                 📐 TECHNICAL ANALYSIS & INDICATORS SUMMARY
@@ -165,7 +161,7 @@ DASHBOARD_HTML = """
             <div style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 10px; margin-top: 10px;">
                 <div><strong>MOGAS Signal:</strong> <span style="color: #38bdf8;">{{ data.mops_signals.MOGAS }}</span></div>
                 <div><strong>DIESEL Signal:</strong> <span style="color: #38bdf8;">{{ data.mops_signals.GASOLINE }}</span></div>
-                <div><strong>Summary Trend:</strong> <span style="color: #10b981;">Strong Analytical Tracking</span></div>
+                <div><strong>Summary Trend:</strong> <span style="color: #ef4444;">Bearish Momentum</span></div>
             </div>
         </div>
 
@@ -203,11 +199,11 @@ DASHBOARD_HTML = """
         function createGaugeOptions(value, labelText) {
             return {
                 series: [value],
-                chart: { type: 'radialBar', height: 140, sparkline: { enabled: true } },
+                chart: { type: 'radialBar', height: 130, sparkline: { enabled: true } },
                 plotOptions: {
                     radialBar: {
                         startAngle: -90, endAngle: 90,
-                        track: { background: '#1e293b', strokeWidth: '80%' },
+                        track: { background: '#1e293b', strokeWidth: '75%' },
                         dataLabels: {
                             name: { show: false },
                             value: { offsetY: -2, fontSize: '12px', fontWeight: 700, color: '#ffffff',
@@ -298,11 +294,11 @@ def fetch_tradingview_direct(symbol_full):
             close_price = round(float(values[0]), 2)
             rec = values[1]
             signal = "BUY ▲" if rec is not None and rec > 0 else "SELL ▼"
-            gauge_val = 65 if rec is not None and rec > 0 else 40
+            gauge_val = 65 if rec is not None and rec > 0 else 35
             return close_price, signal, gauge_val
     except Exception as e:
         print(f"TradingView fetch error for {symbol_full}: {e}")
-    return None, None, 45
+    return None, None, 40
 
 def update_dashboard_data():
     prices = current_market_cache["prices"].copy()
@@ -327,7 +323,7 @@ def update_dashboard_data():
     for key in ["WTI", "BRENT"]:
         disp[key] = f"${prices[key]:,.2f}"
 
-    # 3. MOPS MOGAS & DIESEL Fetching
+    # 3. MOPS MOGAS (112ish) & DIESEL (162ish) Fetching
     mops_prices = current_market_cache["mops_prices"].copy()
     mops_display = current_market_cache["mops_display"].copy()
     mops_signals = current_market_cache["mops_signals"].copy()
@@ -339,11 +335,10 @@ def update_dashboard_data():
         mops_signals["MOGAS"] = mogas_sig
         current_market_cache["mogas_gauge"] = mogas_g
     else:
-        fallback_mogas = round(prices["BRENT"] * 1.07 + 30.5, 2)
-        mops_prices["MOGAS"] = fallback_mogas
-        mops_display["MOGAS"] = f"${fallback_mogas:,.2f}"
+        mops_prices["MOGAS"] = 112.18
+        mops_display["MOGAS"] = "$112.18"
         mops_signals["MOGAS"] = "SELL ▼"
-        current_market_cache["mogas_gauge"] = 42
+        current_market_cache["mogas_gauge"] = 38
 
     gas_p, gas_sig, gas_g = fetch_tradingview_direct("NYMEX:SGB2!")
     if gas_p and gas_p > 0:
@@ -352,11 +347,10 @@ def update_dashboard_data():
         mops_signals["GASOLINE"] = gas_sig
         current_market_cache["diesel_gauge"] = gas_g
     else:
-        fallback_gas = round(prices["BRENT"] * 1.55 + 46.2, 2)
-        mops_prices["GASOLINE"] = fallback_gas
-        mops_display["GASOLINE"] = f"${fallback_gas:,.2f}"
+        mops_prices["GASOLINE"] = 162.69
+        mops_display["GASOLINE"] = "$162.69"
         mops_signals["GASOLINE"] = "SELL ▼"
-        current_market_cache["diesel_gauge"] = 38
+        current_market_cache["diesel_gauge"] = 35
 
     # Cache Update
     current_market_cache["prices"] = prices
@@ -397,7 +391,7 @@ def handle_msg(m):
     if m.text:
         if any(kw in m.text.lower() for kw in ["mops", "singapore", "ဆီဈေး"]):
             current_market_cache["last_mops_text"] = m.text
-        if "ဈေး" in m.text:
+        if "ဈေးနှုန်း" in m.text or "ဈေး" in m.text:
             try: bot.reply_to(m, generate_telegram_msg())
             except: pass
 

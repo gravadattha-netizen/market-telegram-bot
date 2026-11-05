@@ -30,8 +30,8 @@ current_market_cache = {
     "trends": {"WTI": "up", "BRENT": "up"},
     
     # MOPS Data Cache (ပုံပါ ဈေးနှုန်းအတိုင်း အတိအကျ)
-    "mops_prices": {"MOGAS": 112.18, "GASOLINE": 162.69},
-    "mops_display": {"MOGAS": "$112.18", "GASOLINE": "$162.69"},
+    "mops_prices": {"MOGAS": 100.44, "GASOLINE": 157.34},
+    "mops_display": {"MOGAS": "$100.44", "GASOLINE": "$157.34"},
     "mops_signals": {"MOGAS": "SELL ▼", "GASOLINE": "SELL ▼"},
 
     "last_update": "N/A",

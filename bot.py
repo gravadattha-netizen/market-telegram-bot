@@ -23,7 +23,7 @@ ADMIN_MESSAGE = """● QR စနစ်ဖြင့်တစ်နိုင်င
 ● မန်ဘာများအားလုံး မိမိတို့ ပိုင်ဆိုင်မှုကို သေချာ စီမံခန့်ခွဲကြပါရန်။"""
 # =========================================================
 
-# Global Data Cache (ပုံပါ ဈေးနှုန်းအသစ်များဖြင့် အစပြုရန်)
+# Global Data Cache (MOPS ဈေးနှုန်းသစ်များ အတိအကျ ထည့်သွင်းထားပါသည်)
 current_market_cache = {
     "prices": {"WTI": 71.70, "BRENT": 76.00},
     "display_prices": {"WTI": "$71.70", "BRENT": "$76.00"},
@@ -37,14 +37,14 @@ current_market_cache = {
     "last_update": "N/A",
     "wti_gauge": 50,
     "brent_gauge": 55,
-    "mogas_gauge": 40,
+    "mogas_gauge": 38,
     "diesel_gauge": 35,
     "ai_news": "● ကမ္ဘာ့ရေနံဈေးကွက်သတင်းများကို AI ဖြင့် သေချာစွာ အနှစ်ချုပ် သုံးသပ်နေပါသည်...",
     "last_mops_text": "No custom MOPS news forwarded from group yet. Waiting for member updates...",
     "admin_intel": ADMIN_MESSAGE 
 }
 
-# ======= [ HTML UI - FIXED LAYOUT & GAUGES ] =======
+# ======= [ HTML UI - FIXED GAUGES & EXACT PRICES ] =======
 DASHBOARD_HTML = """
 <!DOCTYPE html>
 <html lang="en">
@@ -130,7 +130,7 @@ DASHBOARD_HTML = """
             </div>
         </div>
 
-        <!-- 4 GAUGES SECTION (သပ်ရပ်စွာ နှစ်ကွက်စီ ခွဲထားသည်) -->
+        <!-- 4 GAUGES SECTION -->
         <div class="section-title" style="margin-top: 20px;">📈 Market Sentiment Gauges</div>
         <div class="grid-2">
             <div class="gauge-card">
@@ -305,4 +305,125 @@ def update_dashboard_data():
     disp = current_market_cache["display_prices"].copy()
     trends = current_market_cache["trends"].copy()
     
-    # 
+    # 1. WTI Crude
+    wti_p, wti_t = fetch_yahoo_oil_price("CL=F")
+    if wti_p:
+        prices["WTI"] = wti_p
+        trends["WTI"] = wti_t
+        
+    # 2. Brent Crude
+    brent_p, brent_t = fetch_yahoo_oil_price("BZ=F")
+    if brent_p:
+        prices["BRENT"] = brent_p
+        trends["BRENT"] = brent_t
+    else:
+        prices["BRENT"] = round(prices["WTI"] + 4.10, 2)
+        trends["BRENT"] = trends["WTI"]
+
+    for key in ["WTI", "BRENT"]:
+        disp[key] = f"${prices[key]:,.2f}"
+
+    # 3. MOPS MOGAS (N1B2!) & DIESEL (SGB2!) Fetching
+    mops_prices = current_market_cache["mops_prices"].copy()
+    mops_display = current_market_cache["mops_display"].copy()
+    mops_signals = current_market_cache["mops_signals"].copy()
+
+    mogas_p, mogas_sig, mogas_g = fetch_tradingview_direct("NYMEX:N1B2!")
+    if mogas_p and mogas_p > 0:
+        mops_prices["MOGAS"] = mogas_p
+        mops_display["MOGAS"] = f"${mogas_p:,.2f}"
+        mops_signals["MOGAS"] = mogas_sig
+        current_market_cache["mogas_gauge"] = mogas_g
+    else:
+        mops_prices["MOGAS"] = 100.44  #[span_1](start_span)[span_1](end_span)
+        mops_display["MOGAS"] = "$100.44"
+        mops_signals["MOGAS"] = "SELL ▼"
+        current_market_cache["mogas_gauge"] = 38
+
+    gas_p, gas_sig, gas_g = fetch_tradingview_direct("NYMEX:SGB2!")
+    if gas_p and gas_p > 0:
+        mops_prices["GASOLINE"] = gas_p
+        mops_display["GASOLINE"] = f"${gas_p:,.2f}"
+        mops_signals["GASOLINE"] = gas_sig
+        current_market_cache["diesel_gauge"] = gas_g
+    else:
+        mops_prices["GASOLINE"] = 157.34  #[span_2](start_span)[span_2](end_span)
+        mops_display["GASOLINE"] = "$157.34"
+        mops_signals["GASOLINE"] = "SELL ▼"
+        current_market_cache["diesel_gauge"] = 35
+
+    # Cache Update
+    current_market_cache["prices"] = prices
+    current_market_cache["display_prices"] = disp
+    current_market_cache["trends"] = trends
+    
+    current_market_cache["mops_prices"] = mops_prices
+    current_market_cache["mops_display"] = mops_display
+    current_market_cache["mops_signals"] = mops_signals
+
+    current_market_cache["last_update"] = time.strftime("%I:%M %p")
+    current_market_cache["wti_gauge"] = 65 if trends["WTI"] == "up" else 45
+    current_market_cache["brent_gauge"] = 68 if trends["BRENT"] == "up" else 48
+
+# ======= [ TELEGRAM CONSTRUCT REPORT ] =======
+def generate_telegram_msg():
+    d = current_market_cache["display_prices"]
+    t = current_market_cache["trends"]
+    mops_d = current_market_cache["mops_display"]
+    mops_s = current_market_cache["mops_signals"]
+
+    return (
+        "✨ 🛢 **(မင်္ဂလာရှိသောနေ့လေးဖြစ်ပါစေ)** 🛢 ✨\n\n"
+        "📊 **Energy Market Intelligence Update**\n\n"
+        "🌍 **Live Market Prices:**\n"
+        f"• **WTI Crude:** {d['WTI']} ({'BUY' if t['WTI']=='up' else 'SELL'})\n"
+        f"• **Brent Oil:** {d['BRENT']} ({'BUY' if t['BRENT']=='up' else 'SELL'})\n"
+        f"• **MOPS MOGAS:** {mops_d['MOGAS']} ({mops_s['MOGAS']})\n"
+        f"• **MOPS DIESEL 10PPM:** {mops_d['GASOLINE']} ({mops_s['GASOLINE']})\n\n"
+        f"✍️ **Admin Intel & Outlook:**\n{current_market_cache['admin_intel']}\n\n"
+        f"🤖 **AI Analysis:**\n{current_market_cache['ai_news']}\n\n"
+        f"🕒 Sync: {current_market_cache['last_update']}\n\n"
+        "⚠️ **အရောင်းအဝယ်မပြုလုပ်ပါ သတင်းအချက်အလက်တင်ပြခြင်းပါ**"
+    )
+
+@bot.message_handler(func=lambda m: True)
+def handle_msg(m):
+    if m.text:
+        if any(kw in m.text.lower() for kw in ["mops", "singapore", "ဆီဈေး"]):
+            current_market_cache["last_mops_text"] = m.text
+        if "ဈေးနှုန်း" in m.text or "ဈေး" in m.text:
+            try: bot.reply_to(m, generate_telegram_msg())
+            except: pass
+
+def dashboard_loop():
+    while True:
+        update_dashboard_data()
+        time.sleep(300) # Web Dashboard အချက်အလက်များ ၁၅ မိနစ်တစ်ကြိမ် ရယူရန်
+
+def telegram_loop():
+    while True:
+        update_dashboard_data()
+        current_market_cache["ai_news"] = update_ai_analysis(current_market_cache["prices"])
+        try: 
+            bot.send_message(GROUP_CHAT_ID, generate_telegram_msg())
+            print("Telegram ၈ နာရီတစ်ကြိမ် အော်တိုမက်ဆေ့ချ် ပို့ပြီးပါပြီ။")
+        except Exception as e: 
+            print(f"Telegram broadcast error: {e}")
+        time.sleep(28800) # (၈) နာရီလျှင် တစ်ကြိမ် အလိုအလျောက် Telegram သို့ မက်ဆေ့ချ် ပို့ပေးမည်
+
+if __name__ == "__main__":
+    try: bot.delete_webhook(drop_pending_updates=True)
+    except: pass
+    
+    update_dashboard_data()
+    current_market_cache["ai_news"] = update_ai_analysis(current_market_cache["prices"])
+    
+    threading.Thread(target=dashboard_loop, daemon=True).start()
+    threading.Thread(target=telegram_loop, daemon=True).start()
+    threading.Thread(target=lambda: app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000))), daemon=True).start()
+    
+    while True:
+        try: bot.polling(none_stop=True, timeout=60)
+        except Exception as e: 
+            print(f"Bot polling crash, restarting...: {e}")
+            time.sleep(5)

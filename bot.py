@@ -19,27 +19,26 @@ genai.configure(api_key=GOOGLE_API_KEY)
 # =========================================================
 # ✍️ [ ADMIN INPUT ] - ဆီလုပ်ငန်းသတင်းများ ရေးထည့်ရန်နေရာ
 # =========================================================
-ADMIN_MESSAGE = """● QR စနစ်ဖြင့်တစ်နိုင်ငံလုံး ဆိုင်ပေါင်း ၁၉၂၇ ဆိုင်တပ်ဆင်ရောင်းချ ပေးနေပါသည် မနက်ဖန် ၁၃.၁၁.၂၀၂၆ သောကြာ နေ့ PPRD ဈေးအနေဖြင့် pd/hsd ဈေး 92/95    အနေဖြင့် ဈေးအကျဖြစ်ပါသည်
- 
+ADMIN_MESSAGE = """● QR စနစ်ဖြင့်တစ်နိုင်ငံလုံး ဆိုင်ပေါင်း ၁၉၂၇ ဆိုင်တပ်ဆင်ရောင်းချ ပေးနေပါသည်
 ● မန်ဘာများအားလုံး မိမိတို့ ပိုင်ဆိုင်မှုကို သေချာ စီမံခန့်ခွဲကြပါရန်။"""
 # =========================================================
 
-# Global Data Cache (MOPS ဈေးနှုန်းသစ်များ အတိအကျ ထည့်သွင်းထားပါသည်)
+# Global Data Cache (ပုံပါ ဈေးနှုန်းအသစ်များဖြင့် အစပြုရန်)
 current_market_cache = {
     "prices": {"WTI": 71.70, "BRENT": 76.00},
     "display_prices": {"WTI": "$71.70", "BRENT": "$76.00"},
     "trends": {"WTI": "up", "BRENT": "up"},
     
-    # MOPS Data Cache (N1B2! = 105.50နှင့် SGB2! = 157.20)
+    # MOPS Data Cache (N1B2! = 105.50 နှင့် SGB2! = 157.20)[span_1](start_span)[span_1](end_span)
     "mops_prices": {"MOGAS": 105.50, "GASOLINE": 157.20},
     "mops_display": {"MOGAS": "$105.50", "GASOLINE": "$157.20"},
-    "mops_signals": {"MOGAS": "SELL ▼", "GASOLINE": "SELL ▼"},
+    "mops_signals": {"MOGAS": "BUY ▲", "GASOLINE": "SELL ▼"},
 
     "last_update": "N/A",
     "wti_gauge": 50,
     "brent_gauge": 55,
-    "mogas_gauge": 38,
-    "diesel_gauge": 35,
+    "mogas_gauge": 65,
+    "diesel_gauge": 40,
     "ai_news": "● ကမ္ဘာ့ရေနံဈေးကွက်သတင်းများကို AI ဖြင့် သေချာစွာ အနှစ်ချုပ် သုံးသပ်နေပါသည်...",
     "last_mops_text": "No custom MOPS news forwarded from group yet. Waiting for member updates...",
     "admin_intel": ADMIN_MESSAGE 
@@ -162,7 +161,7 @@ DASHBOARD_HTML = """
             <div style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 10px; margin-top: 10px;">
                 <div><strong>MOGAS Signal:</strong> <span style="color: #38bdf8;">{{ data.mops_signals.MOGAS }}</span></div>
                 <div><strong>DIESEL Signal:</strong> <span style="color: #38bdf8;">{{ data.mops_signals.GASOLINE }}</span></div>
-                <div><strong>Summary Trend:</strong> <span style="color: #ef4444;">Bearish Momentum</span></div>
+                <div><strong>Summary Trend:</strong> <span style="color: #10b981;">Active Bullish Momentum</span></div>
             </div>
         </div>
 
@@ -295,11 +294,11 @@ def fetch_tradingview_direct(symbol_full):
             close_price = round(float(values[0]), 2)
             rec = values[1]
             signal = "BUY ▲" if rec is not None and rec > 0 else "SELL ▼"
-            gauge_val = 65 if rec is not None and rec > 0 else 35
+            gauge_val = 65 if rec is not None and rec > 0 else 40
             return close_price, signal, gauge_val
     except Exception as e:
         print(f"TradingView fetch error for {symbol_full}: {e}")
-    return None, None, 40
+    return None, None, 50
 
 def update_dashboard_data():
     prices = current_market_cache["prices"].copy()
@@ -324,7 +323,7 @@ def update_dashboard_data():
     for key in ["WTI", "BRENT"]:
         disp[key] = f"${prices[key]:,.2f}"
 
-    # 3. MOPS MOGAS (N1B2!) & DIESEL (SGB2!) Fetching
+    # 3. MOPS MOGAS (105.50) & DIESEL (157.20) Fetching[span_2](start_span)[span_2](end_span)
     mops_prices = current_market_cache["mops_prices"].copy()
     mops_display = current_market_cache["mops_display"].copy()
     mops_signals = current_market_cache["mops_signals"].copy()
@@ -336,10 +335,10 @@ def update_dashboard_data():
         mops_signals["MOGAS"] = mogas_sig
         current_market_cache["mogas_gauge"] = mogas_g
     else:
-        mops_prices["MOGAS"] = 100.44  #[span_1](start_span)[span_1](end_span)
-        mops_display["MOGAS"] = "$100.44"
-        mops_signals["MOGAS"] = "SELL ▼"
-        current_market_cache["mogas_gauge"] = 38
+        mops_prices["MOGAS"] = 105.50  #[span_3](start_span)[span_3](end_span)
+        mops_display["MOGAS"] = "$105.50"
+        mops_signals["MOGAS"] = "BUY ▲"
+        current_market_cache["mogas_gauge"] = 65
 
     gas_p, gas_sig, gas_g = fetch_tradingview_direct("NYMEX:SGB2!")
     if gas_p and gas_p > 0:
@@ -348,10 +347,10 @@ def update_dashboard_data():
         mops_signals["GASOLINE"] = gas_sig
         current_market_cache["diesel_gauge"] = gas_g
     else:
-        mops_prices["GASOLINE"] = 157.34  #[span_2](start_span)[span_2](end_span)
-        mops_display["GASOLINE"] = "$157.34"
+        mops_prices["GASOLINE"] = 157.20  #[span_4](start_span)[span_4](end_span)
+        mops_display["GASOLINE"] = "$157.20"
         mops_signals["GASOLINE"] = "SELL ▼"
-        current_market_cache["diesel_gauge"] = 35
+        current_market_cache["diesel_gauge"] = 40
 
     # Cache Update
     current_market_cache["prices"] = prices
@@ -399,7 +398,7 @@ def handle_msg(m):
 def dashboard_loop():
     while True:
         update_dashboard_data()
-        time.sleep(300) # Web Dashboard အချက်အလက်များ ၁၅ မိနစ်တစ်ကြိမ် ရယူရန်
+        time.sleep(300)
 
 def telegram_loop():
     while True:
@@ -410,7 +409,7 @@ def telegram_loop():
             print("Telegram ၈ နာရီတစ်ကြိမ် အော်တိုမက်ဆေ့ချ် ပို့ပြီးပါပြီ။")
         except Exception as e: 
             print(f"Telegram broadcast error: {e}")
-        time.sleep(28800) # (၈) နာရီလျှင် တစ်ကြိမ် အလိုအလျောက် Telegram သို့ မက်ဆေ့ချ် ပို့ပေးမည်
+        time.sleep(28800) # ၈ နာရီလျှင် တစ်ကြိမ် အလိုအလျောက် ပို့ပေးမည်
 
 if __name__ == "__main__":
     try: bot.delete_webhook(drop_pending_updates=True)

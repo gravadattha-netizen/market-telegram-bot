@@ -19,21 +19,20 @@ genai.configure(api_key=GOOGLE_API_KEY)
 # =========================================================
 # ✍️ [ ADMIN INPUT ] - ဆီလုပ်ငန်းသတင်းများ ရေးထည့်ရန်နေရာ
 # =========================================================
-ADMIN_MESSAGE = """● QR စနစ်ဖြင့်တစ်နိုင်ငံလုံး ဆိုင်ပေါင်း ၁၉၂၇ ဆိုင်တပ်ဆင်ရောင်းချ ပေးနေပါသည်
+ADMIN_MESSAGE = """● QR စနစ်ဖြင့်တစ်နိုင်ငံလုံး ဆိုင်ပေါင်း ၁၉၂၇ ဆိုင်တပ်ဆင်ရောင်းချ ပေးနေပါသည် ၁၃.၁၁.၂၀၂၆ သောကြာနေ့ PPRD ဈေးအနေဖြင့်  HSD/PD ၂၀၀ ကျပ် ဝန်းကျင် 92/95 ၃၀၀ ကျော် ဈေးကျဆင်းနိုင်ပါသည်
 ● မန်ဘာများအားလုံး မိမိတို့ ပိုင်ဆိုင်မှုကို သေချာ စီမံခန့်ခွဲကြပါရန်။"""
 # =========================================================
 
-# Global Data Cache (ပုံပါ ဈေးနှုန်းအသစ်များဖြင့် အစပြုရန်)
+# Global Data Cache (တောင်းဆိုထားသော ဈေးနှုန်းအသစ်များဖြင့် အတိအကျ သတ်မှတ်ထားသည်)
 current_market_cache = {
     "prices": {"WTI": 71.70, "BRENT": 76.00},
     "display_prices": {"WTI": "$71.70", "BRENT": "$76.00"},
     "trends": {"WTI": "up", "BRENT": "up"},
     
-     # MOPS Data Cache (N1B2! = 107.76 နှင့် SGB2! = 157.78)
+    # MOPS Data Cache (N1B2! = 107.76 နှင့် SGB2! = 157.78)
     "mops_prices": {"MOGAS": 107.76, "GASOLINE": 157.78},
     "mops_display": {"MOGAS": "$107.76", "GASOLINE": "$157.78"},
     "mops_signals": {"MOGAS": "BUY ▲", "GASOLINE": "SELL ▼"},
-
 
     "last_update": "N/A",
     "wti_gauge": 50,
@@ -279,28 +278,6 @@ def fetch_yahoo_oil_price(symbol):
         print(f"Yahoo Finance error for {symbol}: {e}")
         return None, None
 
-# ======= [ TRADINGVIEW DIRECT FETCH FOR EXACT PRICES ] =======
-def fetch_tradingview_direct(symbol_full):
-    try:
-        url = "https://scanner.tradingview.com/cfd/scan"
-        payload = {
-            "symbols": {"tickers": [symbol_full]},
-            "columns": ["close", "Recommend.All"]
-        }
-        headers = {"User-Agent": "Mozilla/5.0"}
-        res = requests.post(url, json=payload, headers=headers, timeout=10).json()
-        
-        if "data" in res and len(res["data"]) > 0:
-            values = res["data"][0]["d"]
-            close_price = round(float(values[0]), 2)
-            rec = values[1]
-            signal = "BUY ▲" if rec is not None and rec > 0 else "SELL ▼"
-            gauge_val = 65 if rec is not None and rec > 0 else 40
-            return close_price, signal, gauge_val
-    except Exception as e:
-        print(f"TradingView fetch error for {symbol_full}: {e}")
-    return None, None, 50
-
 def update_dashboard_data():
     prices = current_market_cache["prices"].copy()
     disp = current_market_cache["display_prices"].copy()
@@ -324,34 +301,20 @@ def update_dashboard_data():
     for key in ["WTI", "BRENT"]:
         disp[key] = f"${prices[key]:,.2f}"
 
-    # 3. MOPS MOGAS (105.50) & DIESEL (157.20) Fetching[span_2](start_span)[span_2](end_span)
+    # 3. MOPS MOGAS (107.76) & DIESEL (157.78) - တောင်းဆိုထားသော တိကျသည့်ဈေးနှုန်းများ
     mops_prices = current_market_cache["mops_prices"].copy()
     mops_display = current_market_cache["mops_display"].copy()
     mops_signals = current_market_cache["mops_signals"].copy()
 
-    mogas_p, mogas_sig, mogas_g = fetch_tradingview_direct("NYMEX:N1B2!")
-    if mogas_p and mogas_p > 0:
-        mops_prices["MOGAS"] = mogas_p
-        mops_display["MOGAS"] = f"${mogas_p:,.2f}"
-        mops_signals["MOGAS"] = mogas_sig
-        current_market_cache["mogas_gauge"] = mogas_g
-    else:
-        mops_prices["MOGAS"] = 105.50  #[span_3](start_span)[span_3](end_span)
-        mops_display["MOGAS"] = "$105.50"
-        mops_signals["MOGAS"] = "BUY ▲"
-        current_market_cache["mogas_gauge"] = 65
+    mops_prices["MOGAS"] = 107.76
+    mops_display["MOGAS"] = "$107.76"
+    mops_signals["MOGAS"] = "BUY ▲"
+    current_market_cache["mogas_gauge"] = 65
 
-    gas_p, gas_sig, gas_g = fetch_tradingview_direct("NYMEX:SGB2!")
-    if gas_p and gas_p > 0:
-        mops_prices["GASOLINE"] = gas_p
-        mops_display["GASOLINE"] = f"${gas_p:,.2f}"
-        mops_signals["GASOLINE"] = gas_sig
-        current_market_cache["diesel_gauge"] = gas_g
-    else:
-        mops_prices["GASOLINE"] = 157.20  #[span_4](start_span)[span_4](end_span)
-        mops_display["GASOLINE"] = "$157.20"
-        mops_signals["GASOLINE"] = "SELL ▼"
-        current_market_cache["diesel_gauge"] = 40
+    mops_prices["GASOLINE"] = 157.78
+    mops_display["GASOLINE"] = "$157.78"
+    mops_signals["GASOLINE"] = "SELL ▼"
+    current_market_cache["diesel_gauge"] = 40
 
     # Cache Update
     current_market_cache["prices"] = prices

@@ -19,26 +19,26 @@ genai.configure(api_key=GOOGLE_API_KEY)
 # =========================================================
 # ✍️ [ ADMIN INPUT ] - ဆီလုပ်ငန်းသတင်းများ ရေးထည့်ရန်နေရာ
 # =========================================================
-ADMIN_MESSAGE = """● QR စနစ်ဖြင့်တစ်နိုင်ငံလုံး ဆိုင်ပေါင်း ၁၉၂၇ ဆိုင်တပ်ဆင်ရောင်းချ ပေးနေပါသည် ၁၃.၁၁.၂၀၂၆ သောကြာနေ့ PPRD ဈေးအနေဖြင့်  HSD/PD ၂၀၀ ကျပ် ဝန်းကျင် 92/95 ၃၀၀ ကျော် ဈေးကျဆင်းနိုင်ပါသည်
+ADMIN_MESSAGE = """● QR စနစ်ဖြင့်တစ်နိုင်ငံလုံး ဆိုင်ပေါင်း ၁၉၂၇ ဆိုင်တပ်ဆင်ရောင်းချ ပေးနေပါသည်
 ● မန်ဘာများအားလုံး မိမိတို့ ပိုင်ဆိုင်မှုကို သေချာ စီမံခန့်ခွဲကြပါရန်။"""
 # =========================================================
 
-# Global Data Cache (တောင်းဆိုထားသော ဈေးနှုန်းအသစ်များဖြင့် အတိအကျ သတ်မှတ်ထားသည်)
+# Global Data Cache (ပုံပါ ဈေးနှုန်းအသစ်များဖြင့် အစပြုရန်)
 current_market_cache = {
     "prices": {"WTI": 71.70, "BRENT": 76.00},
     "display_prices": {"WTI": "$71.70", "BRENT": "$76.00"},
     "trends": {"WTI": "up", "BRENT": "up"},
     
-    # MOPS Data Cache (N1B2! = 107.76 နှင့် SGB2! = 157.78)
-    "mops_prices": {"MOGAS": 107.76, "GASOLINE": 157.78},
-    "mops_display": {"MOGAS": "$107.76", "GASOLINE": "$157.78"},
-    "mops_signals": {"MOGAS": "BUY ▲", "GASOLINE": "SELL ▼"},
+    # MOPS Data Cache (N1B2! = 101.87 နှင့် SGB2! = 157.79)[span_1](start_span)[span_1](end_span)
+    "mops_prices": {"MOGAS": 101.87, "GASOLINE": 157.79},
+    "mops_display": {"MOGAS": "$101.87", "GASOLINE": "$157.79"},
+    "mops_signals": {"MOGAS": "SELL ▼", "GASOLINE": "BUY ▲"},
 
     "last_update": "N/A",
     "wti_gauge": 50,
     "brent_gauge": 55,
-    "mogas_gauge": 65,
-    "diesel_gauge": 40,
+    "mogas_gauge": 40,
+    "diesel_gauge": 65,
     "ai_news": "● ကမ္ဘာ့ရေနံဈေးကွက်သတင်းများကို AI ဖြင့် သေချာစွာ အနှစ်ချုပ် သုံးသပ်နေပါသည်...",
     "last_mops_text": "No custom MOPS news forwarded from group yet. Waiting for member updates...",
     "admin_intel": ADMIN_MESSAGE 
@@ -161,7 +161,7 @@ DASHBOARD_HTML = """
             <div style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 10px; margin-top: 10px;">
                 <div><strong>MOGAS Signal:</strong> <span style="color: #38bdf8;">{{ data.mops_signals.MOGAS }}</span></div>
                 <div><strong>DIESEL Signal:</strong> <span style="color: #38bdf8;">{{ data.mops_signals.GASOLINE }}</span></div>
-                <div><strong>Summary Trend:</strong> <span style="color: #10b981;">Active Bullish Momentum</span></div>
+                <div><strong>Summary Trend:</strong> <span style="color: #10b981;">Active Market Tracking</span></div>
             </div>
         </div>
 
@@ -301,20 +301,20 @@ def update_dashboard_data():
     for key in ["WTI", "BRENT"]:
         disp[key] = f"${prices[key]:,.2f}"
 
-    # 3. MOPS MOGAS (107.76) & DIESEL (157.78) - တောင်းဆိုထားသော တိကျသည့်ဈေးနှုန်းများ
+    # 3. MOPS MOGAS (101.87) & DIESEL (157.79) - တောင်းဆိုထားသော တိကျသည့်ဈေးနှုန်းများ[span_2](start_span)[span_2](end_span)
     mops_prices = current_market_cache["mops_prices"].copy()
     mops_display = current_market_cache["mops_display"].copy()
     mops_signals = current_market_cache["mops_signals"].copy()
 
-    mops_prices["MOGAS"] = 107.76
-    mops_display["MOGAS"] = "$107.76"
-    mops_signals["MOGAS"] = "BUY ▲"
-    current_market_cache["mogas_gauge"] = 65
+    mops_prices["MOGAS"] = 101.87
+    mops_display["MOGAS"] = "$101.87"
+    mops_signals["MOGAS"] = "SELL ▼"
+    current_market_cache["mogas_gauge"] = 40
 
-    mops_prices["GASOLINE"] = 157.78
-    mops_display["GASOLINE"] = "$157.78"
-    mops_signals["GASOLINE"] = "SELL ▼"
-    current_market_cache["diesel_gauge"] = 40
+    mops_prices["GASOLINE"] = 157.79
+    mops_display["GASOLINE"] = "$157.79"
+    mops_signals["GASOLINE"] = "BUY ▲"
+    current_market_cache["diesel_gauge"] = 65
 
     # Cache Update
     current_market_cache["prices"] = prices
@@ -373,7 +373,7 @@ def telegram_loop():
             print("Telegram ၈ နာရီတစ်ကြိမ် အော်တိုမက်ဆေ့ချ် ပို့ပြီးပါပြီ။")
         except Exception as e: 
             print(f"Telegram broadcast error: {e}")
-        time.sleep(28800) # ၈ နာရီလျှင် တစ်ကြိမ် အလိုအလျောက် ပို့ပေးမည်
+        time.sleep(28800) # (၈) နာရီလျှင် တစ်ကြိမ် အလိုအလျောက် ပို့ပေးမည်
 
 if __name__ == "__main__":
     try: bot.delete_webhook(drop_pending_updates=True)

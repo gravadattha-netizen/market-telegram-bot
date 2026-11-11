@@ -19,7 +19,7 @@ genai.configure(api_key=GOOGLE_API_KEY)
 # =========================================================
 # ✍️ [ ADMIN INPUT ] - ဆီလုပ်ငန်းသတင်းများ ရေးထည့်ရန်နေရာ
 # =========================================================
-ADMIN_MESSAGE = """● QR စနစ်ဖြင့်တစ်နိုင်ငံလုံး ဆိုင်ပေါင်း ၁၉၂၇ ဆိုင်တပ်ဆင်ရောင်းချ ပေးနေပါသည်
+ADMIN_MESSAGE = """● QR စနစ်ဖြင့်တစ်နိုင်ငံလုံး ဆိုင်ပေါင်း ၁၉၂၇ ဆိုင်တပ်ဆင်ရောင်းချ ပေးနေပါသည် လာမည့် အပတ် PPRD ဈေး ကျပါမည်
 ● မန်ဘာများအားလုံး မိမိတို့ ပိုင်ဆိုင်မှုကို သေချာ စီမံခန့်ခွဲကြပါရန်။"""
 # =========================================================
 
@@ -29,16 +29,16 @@ current_market_cache = {
     "display_prices": {"WTI": "$71.70", "BRENT": "$76.00"},
     "trends": {"WTI": "up", "BRENT": "up"},
     
-    # MOPS Data Cache (N1B2! = 101.87 နှင့် SGB2! = 157.79)[span_1](start_span)[span_1](end_span)
-    "mops_prices": {"MOGAS": 101.87, "GASOLINE": 157.79},
-    "mops_display": {"MOGAS": "$101.87", "GASOLINE": "$157.79"},
-    "mops_signals": {"MOGAS": "SELL ▼", "GASOLINE": "BUY ▲"},
+    # MOPS Data Cache (N1B2! = 100.08 နှင့် SGB2! = 149.38)
+    "mops_prices": {"MOGAS": 100.08, "GASOLINE": 149.38},
+    "mops_display": {"MOGAS": "$100.08", "GASOLINE": "$149.38"},
+    "mops_signals": {"MOGAS": "SELL ▼", "GASOLINE": "SELL ▼"},
 
     "last_update": "N/A",
     "wti_gauge": 50,
     "brent_gauge": 55,
     "mogas_gauge": 40,
-    "diesel_gauge": 65,
+    "diesel_gauge": 35,
     "ai_news": "● ကမ္ဘာ့ရေနံဈေးကွက်သတင်းများကို AI ဖြင့် သေချာစွာ အနှစ်ချုပ် သုံးသပ်နေပါသည်...",
     "last_mops_text": "No custom MOPS news forwarded from group yet. Waiting for member updates...",
     "admin_intel": ADMIN_MESSAGE 
@@ -140,254 +140,3 @@ DASHBOARD_HTML = """
             <div class="gauge-card">
                 <div class="gauge-header">🔥 Brent Oil</div>
                 <div class="chart-container"><div id="brentGauge"></div></div>
-            </div>
-        </div>
-        <div class="grid-2">
-            <div class="gauge-card">
-                <div class="gauge-header">⛽ MOPS MOGAS</div>
-                <div class="chart-container"><div id="mogasGauge"></div></div>
-            </div>
-            <div class="gauge-card">
-                <div class="gauge-header">🚛 MOPS DIESEL</div>
-                <div class="chart-container"><div id="dieselGauge"></div></div>
-            </div>
-        </div>
-
-        <!-- TECHNICAL ANALYSIS SECTION -->
-        <div class="ta-box">
-            <div class="news-card-title" style="color: #fbbf24; text-align: center; border-bottom: none; margin-bottom: 8px;">
-                📐 TECHNICAL ANALYSIS & INDICATORS SUMMARY
-            </div>
-            <div style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 10px; margin-top: 10px;">
-                <div><strong>MOGAS Signal:</strong> <span style="color: #38bdf8;">{{ data.mops_signals.MOGAS }}</span></div>
-                <div><strong>DIESEL Signal:</strong> <span style="color: #38bdf8;">{{ data.mops_signals.GASOLINE }}</span></div>
-                <div><strong>Summary Trend:</strong> <span style="color: #10b981;">Active Market Tracking</span></div>
-            </div>
-        </div>
-
-        <!-- Admin, AI & Member News -->
-        <div class="grid-3" style="margin-top: 15px;">
-            <div class="card" style="border: 1px solid rgba(255, 215, 0, 0.4); text-align: left;">
-                <div class="news-card-title" style="color: #FFD700; border-bottom-color: rgba(255, 215, 0, 0.2);">✍️ ADMIN INTEL & OUTLOOK</div>
-                <div class="news-box" style="color: #ffeaa7;">
-                    {{ data.admin_intel }}
-                </div>
-            </div>
-
-            <div class="card" style="text-align: left;">
-                <div class="news-card-title" style="color: #60a5fa; border-bottom-color: #2e3d56;">🤖 OIL MARKET AI ANALYSIS</div>
-                <div class="news-box">
-                    {{ data.ai_news }}
-                </div>
-            </div>
-
-            <div class="card" style="text-align: left;">
-                <div class="news-card-title" style="color: #34d399; border-bottom-color: #2e3d56;">📢 MEMBER DAILY MOPS TRACKER</div>
-                <div class="news-box" style="background: #090f1d; padding: 12px; border-radius: 10px; font-size: 0.85rem;">
-                    {{ data.last_mops_text }}
-                </div>
-            </div>
-        </div>
-
-        <footer>
-            ⚠️ အရောင်းအဝယ်မပြုလုပ်ပါ သတင်းအချက်အလက်တင်ပြခြင်းပါ
-        </footer>
-    </div>
-
-    <script>
-        function getGaugeColor(value) { return value >= 50 ? '#10b981' : '#ef4444'; }
-        function createGaugeOptions(value, labelText) {
-            return {
-                series: [value],
-                chart: { type: 'radialBar', height: 130, sparkline: { enabled: true } },
-                plotOptions: {
-                    radialBar: {
-                        startAngle: -90, endAngle: 90,
-                        track: { background: '#1e293b', strokeWidth: '75%' },
-                        dataLabels: {
-                            name: { show: false },
-                            value: { offsetY: -2, fontSize: '12px', fontWeight: 700, color: '#ffffff',
-                                formatter: function(val) { return val >= 50 ? 'Bullish' : 'Bearish'; }
-                            }
-                        }
-                    }
-                },
-                fill: { colors: [getGaugeColor(value)] },
-                labels: [labelText],
-                theme: { mode: 'dark' }
-            };
-        }
-        new ApexCharts(document.querySelector("#wtiGauge"), createGaugeOptions({{ data.wti_gauge }}, 'WTI')).render();
-        new ApexCharts(document.querySelector("#brentGauge"), createGaugeOptions({{ data.brent_gauge }}, 'BRENT')).render();
-        new ApexCharts(document.querySelector("#mogasGauge"), createGaugeOptions({{ data.mogas_gauge }}, 'MOGAS')).render();
-        new ApexCharts(document.querySelector("#dieselGauge"), createGaugeOptions({{ data.diesel_gauge }}, 'DIESEL')).render();
-    </script>
-</body>
-</html>
-"""
-
-@app.route('/')
-def home():
-    return render_template_string(DASHBOARD_HTML, data=current_market_cache)
-
-bot = telebot.TeleBot(TG_TOKEN)
-
-# ======= [ GEMINI AI ANALYSIS ] =======
-def update_ai_analysis(prices):
-    try:
-        headlines = []
-        rss_url = "https://www.cnbc.com/id/19832390/device/rss/rss.html"
-        res = requests.get(rss_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=8)
-        root = ET.fromstring(res.content)
-        for item in root.findall('.//item')[:4]:
-            text = item.find('title').text
-            if text: headlines.append(text)
-        
-        raw_news = " | ".join(headlines) if headlines else "Oil market metrics are shifting."
-
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        prompt = (
-            "Analyze the following oil prices and energy market news to provide a brief 3-bullet-point summary in Burmese. "
-            "Keep it short, clear, and highly focused on petroleum/crude oil trends.\n\n"
-            f"Prices: WTI={prices['WTI']}, Brent={prices['BRENT']}\n"
-            f"News: {raw_news}\n\n"
-            "Requirements:\n"
-            "1. Output exactly 3 bullet points starting with '●'.\n"
-            "2. Write completely in clean Burmese language.\n"
-            "3. Do NOT mention gold, cryptocurrency, bitcoin, or currency indexes."
-        )
-        response = model.generate_content(prompt)
-        if response.text and len(response.text.strip()) > 10:
-            return response.text.strip()
-    except Exception as e:
-        print(f"Gemini error: {e}")
-    return "● ကမ္ဘာ့ရေနံဈေးကွက်သည် လက်ရှိအခြေအနေတွင် ပုံမှန်အတိုင်း ဆက်လက်ရွေ့လျားနေပါသည်။\n● နိုင်ငံတကာစွမ်းအင်လိုအပ်ချက်နှင့် ထုတ်လုပ်မှုအခြေအနေများကို စောင့်ကြည့်ရပါမည်။"
-
-# ======= [ YAHOO FINANCE LIVE FEED ] =======
-def fetch_yahoo_oil_price(symbol):
-    try:
-        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1m&range=1d"
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        response = requests.get(url, headers=headers, timeout=7).json()
-        meta = response['chart']['result'][0]['meta']
-        price = meta['regularMarketPrice']
-        prev_close = meta['previousClose']
-        trend = "up" if price >= prev_close else "down"
-        return round(float(price), 2), trend
-    except Exception as e:
-        print(f"Yahoo Finance error for {symbol}: {e}")
-        return None, None
-
-def update_dashboard_data():
-    prices = current_market_cache["prices"].copy()
-    disp = current_market_cache["display_prices"].copy()
-    trends = current_market_cache["trends"].copy()
-    
-    # 1. WTI Crude
-    wti_p, wti_t = fetch_yahoo_oil_price("CL=F")
-    if wti_p:
-        prices["WTI"] = wti_p
-        trends["WTI"] = wti_t
-        
-    # 2. Brent Crude
-    brent_p, brent_t = fetch_yahoo_oil_price("BZ=F")
-    if brent_p:
-        prices["BRENT"] = brent_p
-        trends["BRENT"] = brent_t
-    else:
-        prices["BRENT"] = round(prices["WTI"] + 4.10, 2)
-        trends["BRENT"] = trends["WTI"]
-
-    for key in ["WTI", "BRENT"]:
-        disp[key] = f"${prices[key]:,.2f}"
-
-    # 3. MOPS MOGAS (101.87) & DIESEL (157.79) - တောင်းဆိုထားသော တိကျသည့်ဈေးနှုန်းများ[span_2](start_span)[span_2](end_span)
-    mops_prices = current_market_cache["mops_prices"].copy()
-    mops_display = current_market_cache["mops_display"].copy()
-    mops_signals = current_market_cache["mops_signals"].copy()
-
-    mops_prices["MOGAS"] = 101.87
-    mops_display["MOGAS"] = "$101.87"
-    mops_signals["MOGAS"] = "SELL ▼"
-    current_market_cache["mogas_gauge"] = 40
-
-    mops_prices["GASOLINE"] = 157.79
-    mops_display["GASOLINE"] = "$157.79"
-    mops_signals["GASOLINE"] = "BUY ▲"
-    current_market_cache["diesel_gauge"] = 65
-
-    # Cache Update
-    current_market_cache["prices"] = prices
-    current_market_cache["display_prices"] = disp
-    current_market_cache["trends"] = trends
-    
-    current_market_cache["mops_prices"] = mops_prices
-    current_market_cache["mops_display"] = mops_display
-    current_market_cache["mops_signals"] = mops_signals
-
-    current_market_cache["last_update"] = time.strftime("%I:%M %p")
-    current_market_cache["wti_gauge"] = 65 if trends["WTI"] == "up" else 45
-    current_market_cache["brent_gauge"] = 68 if trends["BRENT"] == "up" else 48
-
-# ======= [ TELEGRAM CONSTRUCT REPORT ] =======
-def generate_telegram_msg():
-    d = current_market_cache["display_prices"]
-    t = current_market_cache["trends"]
-    mops_d = current_market_cache["mops_display"]
-    mops_s = current_market_cache["mops_signals"]
-
-    return (
-        "✨ 🛢 **(မင်္ဂလာရှိသောနေ့လေးဖြစ်ပါစေ)** 🛢 ✨\n\n"
-        "📊 **Energy Market Intelligence Update**\n\n"
-        "🌍 **Live Market Prices:**\n"
-        f"• **WTI Crude:** {d['WTI']} ({'BUY' if t['WTI']=='up' else 'SELL'})\n"
-        f"• **Brent Oil:** {d['BRENT']} ({'BUY' if t['BRENT']=='up' else 'SELL'})\n"
-        f"• **MOPS MOGAS:** {mops_d['MOGAS']} ({mops_s['MOGAS']})\n"
-        f"• **MOPS DIESEL 10PPM:** {mops_d['GASOLINE']} ({mops_s['GASOLINE']})\n\n"
-        f"✍️ **Admin Intel & Outlook:**\n{current_market_cache['admin_intel']}\n\n"
-        f"🤖 **AI Analysis:**\n{current_market_cache['ai_news']}\n\n"
-        f"🕒 Sync: {current_market_cache['last_update']}\n\n"
-        "⚠️ **အရောင်းအဝယ်မပြုလုပ်ပါ သတင်းအချက်အလက်တင်ပြခြင်းပါ**"
-    )
-
-@bot.message_handler(func=lambda m: True)
-def handle_msg(m):
-    if m.text:
-        if any(kw in m.text.lower() for kw in ["mops", "singapore", "ဆီဈေး"]):
-            current_market_cache["last_mops_text"] = m.text
-        if "ဈေးနှုန်း" in m.text or "ဈေး" in m.text:
-            try: bot.reply_to(m, generate_telegram_msg())
-            except: pass
-
-def dashboard_loop():
-    while True:
-        update_dashboard_data()
-        time.sleep(300)
-
-def telegram_loop():
-    while True:
-        update_dashboard_data()
-        current_market_cache["ai_news"] = update_ai_analysis(current_market_cache["prices"])
-        try: 
-            bot.send_message(GROUP_CHAT_ID, generate_telegram_msg())
-            print("Telegram ၈ နာရီတစ်ကြိမ် အော်တိုမက်ဆေ့ချ် ပို့ပြီးပါပြီ။")
-        except Exception as e: 
-            print(f"Telegram broadcast error: {e}")
-        time.sleep(28800) # (၈) နာရီလျှင် တစ်ကြိမ် အလိုအလျောက် ပို့ပေးမည်
-
-if __name__ == "__main__":
-    try: bot.delete_webhook(drop_pending_updates=True)
-    except: pass
-    
-    update_dashboard_data()
-    current_market_cache["ai_news"] = update_ai_analysis(current_market_cache["prices"])
-    
-    threading.Thread(target=dashboard_loop, daemon=True).start()
-    threading.Thread(target=telegram_loop, daemon=True).start()
-    threading.Thread(target=lambda: app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000))), daemon=True).start()
-    
-    while True:
-        try: bot.polling(none_stop=True, timeout=60)
-        except Exception as e: 
-            print(f"Bot polling crash, restarting...: {e}")
-            time.sleep(5)

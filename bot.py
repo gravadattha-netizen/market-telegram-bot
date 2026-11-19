@@ -10,7 +10,7 @@ import google.generativeai as genai
 app = Flask('')
 
 # ======= [ CONFIGURATION - TOKENS & KEYS ] =======
-TG_TOKEN = "8876036329:AAHPL6sdZxUJUK0icXwMCS_VwboZPg6sI_w" 
+TG_TOKEN = "8876036329:AAHPL6sdZxUJUK0icXwMCS_VwboZPg6sI_w"
 GROUP_CHAT_ID = -1003940722388  
 GOOGLE_API_KEY = "AIzaSyAKM5IAugwBdKxrWQ__igkDwjwITW6f2kc"
 
@@ -21,6 +21,13 @@ genai.configure(api_key=GOOGLE_API_KEY)
 # =========================================================
 ADMIN_MESSAGE = """● QR စနစ်ဖြင့်တစ်နိုင်ငံလုံး ဆိုင်ပေါင်း ၁၉၂၇ ဆိုင်တပ်ဆင်ရောင်းချ ပေးနေပါသည်
 ● မန်ဘာများအားလုံး မိမိတို့ ပိုင်ဆိုင်မှုကို သေချာ စီမံခန့်ခွဲကြပါရန်။"""
+
+# =========================================================
+# 💵 [ MANUAL MOPS INPUT ] - N1B2 (MOGAS) နှင့် SGB2 (DIESEL) ဈေးထည့်ရန်
+# ဂဏန်းများကို $(  ) ထဲတွင် Manual ထည့်သွင်းပါ (ဥပမာ - 97.24, 153.30)
+# =========================================================
+MOPS_N1B2_PRICE = $(  )  # N1B2 (MOGAS) ဈေးနှုန်း ထည့်ရန်
+MOPS_SGB2_PRICE = $(  )  # SGB2 (DIESEL) ဈေးနှုန်း ထည့်ရန်
 # =========================================================
 
 # Global Data Cache
@@ -29,21 +36,22 @@ current_market_cache = {
     "display_prices": {"WTI": "$71.70", "BRENT": "$76.00"},
     "trends": {"WTI": "up", "BRENT": "up"},
     
-    # Future MOPS Data Cache
-    "mops_prices": {"MOGAS": 0.0, "GASOLINE": 0.0},
-    "mops_display": {"MOGAS": "$0.00", "GASOLINE": "$0.00"},
-    "mops_signals": {"MOGAS": "Neutral", "GASOLINE": "Neutral"},
-    "mops_ta": {"MOGAS": "HOLD", "GASOLINE": "HOLD"},
+    # MOPS Data Cache (Manual ထည့်သွင်းထားသော ဈေးနှုန်းများဖြင့် အစပြုရန်)
+    "mops_prices": {"MOGAS": MOPS_N1B2_PRICE, "GASOLINE": MOPS_SGB2_PRICE},
+    "mops_display": {"MOGAS": f"${MOPS_N1B2_PRICE}", "GASOLINE": f"${MOPS_SGB2_PRICE}"},
+    "mops_signals": {"MOGAS": "SELL ▼", "GASOLINE": "BUY ▲"},
 
     "last_update": "N/A",
     "wti_gauge": 50,
     "brent_gauge": 55,
+    "mogas_gauge": 40,
+    "diesel_gauge": 65,
     "ai_news": "● ကမ္ဘာ့ရေနံဈေးကွက်သတင်းများကို AI ဖြင့် သေချာစွာ အနှစ်ချုပ် သုံးသပ်နေပါသည်...",
     "last_mops_text": "No custom MOPS news forwarded from group yet. Waiting for member updates...",
     "admin_intel": ADMIN_MESSAGE 
 }
 
-# ======= [ HTML UI - CLEAN OIL PORTAL ] =======
+# ======= [ HTML UI - FIXED GAUGES & EXACT PRICES ] =======
 DASHBOARD_HTML = """
 <!DOCTYPE html>
 <html lang="en">
@@ -59,7 +67,7 @@ DASHBOARD_HTML = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>⚡ Kyaw Gyi Energy Intelligence Hub</title>
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght=500;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
         body { background-color: #0b0f19; color: #f1f5f9; padding: 15px; }
@@ -68,21 +76,20 @@ DASHBOARD_HTML = """
         h1 { font-size: 1.5rem; color: #38bdf8; font-weight: 800; letter-spacing: 0.5px; }
         .greeting { color: #FFD700; font-size: 1rem; font-weight: bold; display: block; margin-top: 6px; }
         .sync-time { color: #64748b; font-size: 0.8rem; font-weight: bold; display: block; margin-top: 4px; }
+        .section-title { font-size: 0.95rem; color: #38bdf8; font-weight: bold; text-align: center; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 0.5px; }
         .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 15px; }
         .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 15px; }
-        .card { background: #111726; border-radius: 14px; border: 1px solid #1e293b; padding: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2); }
-        .card-title { font-size: 0.85rem; color: #94a3b8; font-weight: bold; text-transform: uppercase; margin-bottom: 12px; border-bottom: 1px solid #1e293b; padding-bottom: 6px; }
-        .row-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #1e293b; }
-        .row-item:last-child { border-bottom: none; }
-        .label-text { font-size: 0.9rem; font-weight: 700; color: #cbd5e1; }
-        .val-text { font-size: 1rem; font-weight: 800; }
-        .gauge-card { background: #111726; border-radius: 14px; padding: 12px; border: 1px solid #1e293b; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .card { background: #111726; border-radius: 14px; border: 1px solid #1e293b; padding: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2); text-align: center; }
+        .card-title { font-size: 0.85rem; color: #94a3b8; font-weight: bold; text-transform: uppercase; margin-bottom: 8px; }
+        .price-val { font-size: 1.4rem; font-weight: 800; color: #ffffff; margin-bottom: 10px; }
+        .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; }
+        .badge-buy { background-color: #10b981; color: #ffffff; }
+        .badge-sell { background-color: #ef4444; color: #ffffff; }
+        .gauge-card { background: #111726; border-radius: 14px; padding: 12px; border: 1px solid #1e293b; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; overflow: hidden; }
         .gauge-header { font-size: 0.75rem; color: #94a3b8; font-weight: bold; margin-bottom: 8px; text-transform: uppercase; }
         .chart-container { width: 100%; height: 110px; display: flex; justify-content: center; align-items: center; overflow: hidden; }
-        .up { color: #10b981 !important; }    
-        .down { color: #ef4444 !important; }  
-        .bullish { color: #10b981; font-weight: 800; }
-        .bearish { color: #ef4444; font-weight: 800; }
+        .ta-box { background: #111726; border: 1px solid #1e293b; border-radius: 14px; padding: 16px; margin-bottom: 15px; text-align: center; }
+        .news-card-title { font-size: 0.85rem; color: #94a3b8; font-weight: bold; text-transform: uppercase; margin-bottom: 12px; border-bottom: 1px solid #1e293b; padding-bottom: 6px; text-align: left; }
         .news-box { line-height: 1.7; font-size: 0.9rem; color: #e2e8f0; white-space: pre-line; text-align: left; }
         footer { text-align: center; color: #ef4444; font-size: 0.8rem; font-weight: bold; padding: 12px; background: #070a12; border-radius: 12px; border: 1px solid rgba(239, 68, 68, 0.2); margin-top: 10px; }
         @media (max-width: 768px) {
@@ -90,105 +97,99 @@ DASHBOARD_HTML = """
             h1 { font-size: 1.3rem; }
             .grid-2 { grid-template-columns: 1fr; gap: 12px; }
             .grid-3 { grid-template-columns: 1fr; gap: 12px; }
-            .card { padding: 12px; }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>KYAW GYI ENERGY INTELLIGENCE HUB ⚡</h1>
+            <h1>Oil Energy Intelligence Hub Dashboard</h1>
             <span class="greeting">(မင်္ဂလာရှိသောနေ့လေးဖြစ်ပါစေ)</span>
             <span class="sync-time">Last Sync: {{ data.last_update }}</span>
         </header>
 
-        <!-- 1. ကမ္ဘာ့ရေနံဈေး -->
+        <div class="section-title">📊 Live Market Prices & MOPS Update</div>
+        
+        <!-- Live Prices Cards -->
         <div class="grid-2">
             <div class="card">
-                <div class="card-title">🛢 WTI Crude (ကမ္ဘာ့ရေနံဈေး)</div>
-                <div class="row-item">
-                    <span class="label-text">Price</span>
-                    <span class="val-text {{ data.trends.WTI }}">{{ data.display_prices.WTI }}</span>
-                </div>
+                <div class="card-title">WTI Crude</div>
+                <div class="price-val">{{ data.display_prices.WTI }}</div>
+                <div><span class="badge {{ 'badge-buy' if data.trends.WTI == 'up' else 'badge-sell' }}">{{ 'BUY ▲' if data.trends.WTI == 'up' else 'SELL ▼' }}</span></div>
             </div>
             <div class="card">
-                <div class="card-title">🛢 Brent Crude (ကမ္ဘာ့ရေနံဈေး)</div>
-                <div class="row-item">
-                    <span class="label-text">Price</span>
-                    <span class="val-text {{ data.trends.BRENT }}">{{ data.display_prices.BRENT }}</span>
-                </div>
+                <div class="card-title">Brent Oil</div>
+                <div class="price-val">{{ data.display_prices.BRENT }}</div>
+                <div><span class="badge {{ 'badge-buy' if data.trends.BRENT == 'up' else 'badge-sell' }}">{{ 'BUY ▲' if data.trends.BRENT == 'up' else 'SELL ▼' }}</span></div>
             </div>
         </div>
 
-        <!-- 2. Gauges -->
+        <div class="grid-2">
+            <div class="card">
+                <div class="card-title">MOPS MOGAS</div>
+                <div class="price-val" style="color: #38bdf8;">{{ data.mops_display.MOGAS }}</div>
+                <div><span class="badge {{ 'badge-buy' if 'BUY' in data.mops_signals.MOGAS else 'badge-sell' }}">{{ data.mops_signals.MOGAS }}</span></div>
+            </div>
+            <div class="card">
+                <div class="card-title">MOPS DIESEL 10PPM</div>
+                <div class="price-val" style="color: #38bdf8;">{{ data.mops_display.GASOLINE }}</div>
+                <div><span class="badge {{ 'badge-buy' if 'BUY' in data.mops_signals.GASOLINE else 'badge-sell' }}">{{ data.mops_signals.GASOLINE }}</span></div>
+            </div>
+        </div>
+
+        <!-- 4 GAUGES SECTION -->
+        <div class="section-title" style="margin-top: 20px;">📈 Market Sentiment Gauges</div>
         <div class="grid-2">
             <div class="gauge-card">
-                <div class="gauge-header">🛢 WTI Crude Gauge</div>
+                <div class="gauge-header">🛢 WTI Crude</div>
                 <div class="chart-container"><div id="wtiGauge"></div></div>
             </div>
             <div class="gauge-card">
-                <div class="gauge-header">🔥 Brent Oil Gauge</div>
+                <div class="gauge-header">🔥 Brent Oil</div>
                 <div class="chart-container"><div id="brentGauge"></div></div>
             </div>
         </div>
-
-        <!-- 3. Future MOPS (MOGAS & GASOLINE) -->
         <div class="grid-2">
-            <div class="card">
-                <div class="card-title" style="color: #38bdf8;">FUTURE MOPS: MOGAS</div>
-                <div class="row-item">
-                    <span class="label-text">Price</span>
-                    <span class="val-text">{{ data.mops_display.MOGAS }}</span>
-                </div>
-                <div class="row-item">
-                    <span class="label-text">Market Sentiment</span>
-                    <span class="val-text {{ 'bullish' if data.mops_signals.MOGAS == 'Bullish' else 'bearish' }}">
-                        {{ '🟢 Bullish' if data.mops_signals.MOGAS == 'Bullish' else '🔴 Bearish' }}
-                    </span>
-                </div>
-                <div class="row-item">
-                    <span class="label-text">Technical Analysis</span>
-                    <span class="val-text" style="color: #fbbf24;">{{ data.mops_ta.MOGAS }}</span>
-                </div>
+            <div class="gauge-card">
+                <div class="gauge-header">⛽ MOPS MOGAS</div>
+                <div class="chart-container"><div id="mogasGauge"></div></div>
             </div>
-
-            <div class="card">
-                <div class="card-title" style="color: #38bdf8;">FUTURE MOPS: GASOLINE</div>
-                <div class="row-item">
-                    <span class="label-text">Price</span>
-                    <span class="val-text">{{ data.mops_display.GASOLINE }}</span>
-                </div>
-                <div class="row-item">
-                    <span class="label-text">Market Sentiment</span>
-                    <span class="val-text {{ 'bullish' if data.mops_signals.GASOLINE == 'Bullish' else 'bearish' }}">
-                        {{ '🟢 Bullish' if data.mops_signals.GASOLINE == 'Bullish' else '🔴 Bearish' }}
-                    </span>
-                </div>
-                <div class="row-item">
-                    <span class="label-text">Technical Analysis</span>
-                    <span class="val-text" style="color: #fbbf24;">{{ data.mops_ta.GASOLINE }}</span>
-                </div>
+            <div class="gauge-card">
+                <div class="gauge-header">🚛 MOPS DIESEL</div>
+                <div class="chart-container"><div id="dieselGauge"></div></div>
             </div>
         </div>
 
-        <!-- 4. Admin, AI & Member News -->
-        <div class="grid-3">
-            <div class="card" style="border: 1px solid rgba(255, 215, 0, 0.4);">
-                <div class="card-title" style="color: #FFD700; border-bottom-color: rgba(255, 215, 0, 0.2);">✍️ ADMIN INTEL & OUTLOOK</div>
+        <!-- TECHNICAL ANALYSIS SECTION -->
+        <div class="ta-box">
+            <div class="news-card-title" style="color: #fbbf24; text-align: center; border-bottom: none; margin-bottom: 8px;">
+                📐 TECHNICAL ANALYSIS & INDICATORS SUMMARY
+            </div>
+            <div style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 10px; margin-top: 10px;">
+                <div><strong>MOGAS Signal:</strong> <span style="color: #38bdf8;">{{ data.mops_signals.MOGAS }}</span></div>
+                <div><strong>DIESEL Signal:</strong> <span style="color: #38bdf8;">{{ data.mops_signals.GASOLINE }}</span></div>
+                <div><strong>Summary Trend:</strong> <span style="color: #10b981;">Active Market Tracking</span></div>
+            </div>
+        </div>
+
+        <!-- Admin, AI & Member News -->
+        <div class="grid-3" style="margin-top: 15px;">
+            <div class="card" style="border: 1px solid rgba(255, 215, 0, 0.4); text-align: left;">
+                <div class="news-card-title" style="color: #FFD700; border-bottom-color: rgba(255, 215, 0, 0.2);">✍️ ADMIN INTEL & OUTLOOK</div>
                 <div class="news-box" style="color: #ffeaa7;">
                     {{ data.admin_intel }}
                 </div>
             </div>
 
-            <div class="card">
-                <div class="card-title" style="color: #60a5fa; border-bottom-color: #2e3d56;">🤖 OIL MARKET AI ANALYSIS</div>
+            <div class="card" style="text-align: left;">
+                <div class="news-card-title" style="color: #60a5fa; border-bottom-color: #2e3d56;">🤖 OIL MARKET AI ANALYSIS</div>
                 <div class="news-box">
                     {{ data.ai_news }}
                 </div>
             </div>
 
-            <div class="card">
-                <div class="card-title" style="color: #34d399; border-bottom-color: #2e3d56;">📢 MEMBER DAILY MOPS TRACKER</div>
+            <div class="card" style="text-align: left;">
+                <div class="news-card-title" style="color: #34d399; border-bottom-color: #2e3d56;">📢 MEMBER DAILY MOPS TRACKER</div>
                 <div class="news-box" style="background: #090f1d; padding: 12px; border-radius: 10px; font-size: 0.85rem;">
                     {{ data.last_mops_text }}
                 </div>
@@ -205,11 +206,11 @@ DASHBOARD_HTML = """
         function createGaugeOptions(value, labelText) {
             return {
                 series: [value],
-                chart: { type: 'radialBar', height: 140, sparkline: { enabled: true } },
+                chart: { type: 'radialBar', height: 130, sparkline: { enabled: true } },
                 plotOptions: {
                     radialBar: {
                         startAngle: -90, endAngle: 90,
-                        track: { background: '#1e293b', strokeWidth: '80%' },
+                        track: { background: '#1e293b', strokeWidth: '75%' },
                         dataLabels: {
                             name: { show: false },
                             value: { offsetY: -2, fontSize: '12px', fontWeight: 700, color: '#ffffff',
@@ -225,6 +226,8 @@ DASHBOARD_HTML = """
         }
         new ApexCharts(document.querySelector("#wtiGauge"), createGaugeOptions({{ data.wti_gauge }}, 'WTI')).render();
         new ApexCharts(document.querySelector("#brentGauge"), createGaugeOptions({{ data.brent_gauge }}, 'BRENT')).render();
+        new ApexCharts(document.querySelector("#mogasGauge"), createGaugeOptions({{ data.mogas_gauge }}, 'MOGAS')).render();
+        new ApexCharts(document.querySelector("#dieselGauge"), createGaugeOptions({{ data.diesel_gauge }}, 'DIESEL')).render();
     </script>
 </body>
 </html>
@@ -282,46 +285,6 @@ def fetch_yahoo_oil_price(symbol):
         print(f"Yahoo Finance error for {symbol}: {e}")
         return None, None
 
-# ======= [ DIRECT TRADINGVIEW SCANNER FETCH ] =======
-def fetch_tradingview_direct(symbol_full):
-    """ TradingView Scanner API သို့ တိုက်ရိုက် HTTP POST Request ဖြင့် ဈေးနှုန်းနှင့် Technical Data ဆွဲထုတ်ခြင်း """
-    try:
-        url = "https://scanner.tradingview.com/cfd/scan"
-        payload = {
-            "symbols": {"tickers": [symbol_full]},
-            "columns": ["close", "Recommend.All", "change"]
-        }
-        headers = {"User-Agent": "Mozilla/5.0"}
-        res = requests.post(url, json=payload, headers=headers, timeout=10).json()
-        
-        if "data" in res and len(res["data"]) > 0:
-            values = res["data"][0]["d"]
-            close_price = round(float(values[0]), 2)
-            recommend_score = values[1]
-            
-            # Recommendation Score ကိုမူတည်၍ TA နှင့် Bullish/Bearish ခွဲခြားခြင်း
-            if recommend_score is not None:
-                if recommend_score >= 0.5:
-                    signal = "Bullish"
-                    ta = "BUY"
-                elif recommend_score <= -0.5:
-                    signal = "Bearish"
-                    ta = "SELL"
-                elif recommend_score > 0:
-                    signal = "Bullish"
-                    ta = "BUY"
-                else:
-                    signal = "Bearish"
-                    ta = "SELL"
-            else:
-                signal = "Neutral"
-                ta = "HOLD"
-                
-            return close_price, signal, ta
-    except Exception as e:
-        print(f"TradingView Scanner Direct Fetch Error [{symbol_full}]: {e}")
-    return None, None, None
-
 def update_dashboard_data():
     prices = current_market_cache["prices"].copy()
     disp = current_market_cache["display_prices"].copy()
@@ -337,113 +300,4 @@ def update_dashboard_data():
     brent_p, brent_t = fetch_yahoo_oil_price("BZ=F")
     if brent_p:
         prices["BRENT"] = brent_p
-        trends["BRENT"] = brent_t
-    else:
-        prices["BRENT"] = round(prices["WTI"] + 4.10, 2)
-        trends["BRENT"] = trends["WTI"]
-
-    for key in ["WTI", "BRENT"]:
-        disp[key] = f"${prices[key]:,.2f}"
-
-    # 3. Future MOPS (TradingView မှ တိုက်ရိုက်ဆွဲထုတ်ခြင်း)
-    mops_prices = current_market_cache["mops_prices"].copy()
-    mops_display = current_market_cache["mops_display"].copy()
-    mops_signals = current_market_cache["mops_signals"].copy()
-    mops_ta = current_market_cache["mops_ta"].copy()
-
-    # MOGAS (TradingView Ticker: NYMEX:N1B2!)
-    mogas_p, mogas_sig, mogas_ta_val = fetch_tradingview_direct("NYMEX:N1B2!")
-    if mogas_p:
-        mops_prices["MOGAS"] = mogas_p
-        mops_display["MOGAS"] = f"${mogas_p:,.2f}"
-        mops_signals["MOGAS"] = mogas_sig
-        mops_ta["MOGAS"] = mogas_ta_val
-
-    # GASOLINE / GASOIL (TradingView Ticker: NYMEX:SGB2!)
-    gas_p, gas_sig, gas_ta_val = fetch_tradingview_direct("NYMEX:SGB2!")
-    if gas_p:
-        mops_prices["GASOLINE"] = gas_p
-        mops_display["GASOLINE"] = f"${gas_p:,.2f}"
-        mops_signals["GASOLINE"] = gas_sig
-        mops_ta["GASOLINE"] = gas_ta_val
-
-    # Cache Update
-    current_market_cache["prices"] = prices
-    current_market_cache["display_prices"] = disp
-    current_market_cache["trends"] = trends
-    
-    current_market_cache["mops_prices"] = mops_prices
-    current_market_cache["mops_display"] = mops_display
-    current_market_cache["mops_signals"] = mops_signals
-    current_market_cache["mops_ta"] = mops_ta
-
-    current_market_cache["last_update"] = time.strftime("%I:%M %p")
-    current_market_cache["wti_gauge"] = 65 if trends["WTI"] == "up" else 45
-    current_market_cache["brent_gauge"] = 68 if trends["BRENT"] == "up" else 48
-
-# ======= [ TELEGRAM CONSTRUCT REPORT ] =======
-def generate_telegram_msg():
-    d = current_market_cache["display_prices"]
-    t = current_market_cache["trends"]
-    mops_d = current_market_cache["mops_display"]
-    mops_s = current_market_cache["mops_signals"]
-    mops_t = current_market_cache["mops_ta"]
-
-    def arr(k): return "▲" if t[k] == "up" else "▼"
-    def mops_icon(sig): return "🟢" if sig == "Bullish" else "🔴"
-
-    return (
-        "✨ 🛢 **(မင်္ဂလာရှိသောနေ့လေးဖြစ်ပါစေ)** 🛢 ✨\n\n"
-        "📊 **Energy Market Intelligence Update**\n\n"
-        "🌍 **ကမ္ဘာ့ရေနံဈေးနှုန်းများ:**\n"
-        f"• **WTI Crude:** {d['WTI']} {arr('WTI')}\n"
-        f"• **Brent Oil:** {d['BRENT']} {arr('BRENT')}\n\n"
-        "📈 **Future MOPS:**\n"
-        f"• **MOGAS:** {mops_d['MOGAS']} | {mops_icon(mops_s['MOGAS'])} {mops_s['MOGAS']} (TA: `{mops_t['MOGAS']}`)\n"
-        f"• **GASOLINE:** {mops_d['GASOLINE']} | {mops_icon(mops_s['GASOLINE'])} {mops_s['GASOLINE']} (TA: `{mops_t['GASOLINE']}`)\n\n"
-        f"✍️ **Admin Intel & Outlook:**\n{current_market_cache['admin_intel']}\n\n"
-        f"🤖 **AI Analysis:**\n{current_market_cache['ai_news']}\n\n"
-        f"🕒 Sync: {current_market_cache['last_update']}\n\n"
-        "⚠️ **အရောင်းအဝယ်မပြုလုပ်ပါ သတင်းအချက်အလက်တင်ပြခြင်းပါ**"
-    )
-
-@bot.message_handler(func=lambda m: True)
-def handle_msg(m):
-    if m.text:
-        if any(kw in m.text.lower() for kw in ["mops", "singapore", "ဆီဈေး"]):
-            current_market_cache["last_mops_text"] = m.text
-        if "ဈေး" in m.text:
-            try: bot.reply_to(m, generate_telegram_msg())
-            except: pass
-
-def dashboard_loop():
-    while True:
-        update_dashboard_data()
-        time.sleep(300)
-
-def telegram_loop():
-    while True:
-        update_dashboard_data()
-        current_market_cache["ai_news"] = update_ai_analysis(current_market_cache["prices"])
-        try: 
-            bot.send_message(GROUP_CHAT_ID, generate_telegram_msg())
-        except Exception as e: 
-            print(f"Telegram broadcast error: {e}")
-        time.sleep(14400)
-
-if __name__ == "__main__":
-    try: bot.delete_webhook(drop_pending_updates=True)
-    except: pass
-    
-    update_dashboard_data()
-    current_market_cache["ai_news"] = update_ai_analysis(current_market_cache["prices"])
-    
-    threading.Thread(target=dashboard_loop, daemon=True).start()
-    threading.Thread(target=telegram_loop, daemon=True).start()
-    threading.Thread(target=lambda: app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000))), daemon=True).start()
-    
-    while True:
-        try: bot.polling(none_stop=True, timeout=60)
-        except Exception as e: 
-            print(f"Bot polling crash, restarting...: {e}")
-            time
+        trends["BR
